@@ -197,3 +197,22 @@ footer a{text-decoration:none}
   .container.wide-layout{padding-left:14px;padding-right:14px}
   .wide-layout .wide-table{min-width:1430px}
 }
+
+/* Active-timer diamond calculator and break-even column. */
+.wide-layout .wide-table{min-width:1680px}
+.wide-table thead th:last-child{min-width:182px;width:198px}
+.wide-break-cell{min-width:182px;vertical-align:middle}
+.wide-break-entry{display:flex;flex-direction:column;gap:2px;padding:4px 0}
+.wide-break-entry+.wide-break-entry{border-top:1px dashed var(--edge);margin-top:6px;padding-top:7px}
+.wide-break-entry strong{color:var(--gold)}
+.calc-fields{grid-template-columns:repeat(4,minmax(0,1fr));margin:20px 0}
+.calculator-summary{display:grid;grid-template-columns:2fr 1fr;gap:15px;margin:20px 0}
+.calculator-summary>div{padding:18px;border:1px solid var(--edge);border-radius:12px;background:#10242b}
+.stat-label{font-size:11px;color:var(--muted);letter-spacing:.08em;font-weight:700;text-transform:uppercase}
+.calc-diamonds{display:flex;align-items:center;gap:12px;color:var(--gold);font-size:clamp(26px,4vw,39px)}
+.calc-rate{font-size:27px;font-weight:700;color:var(--text)}
+.calc-table td,.calc-table th{text-align:left}
+.calc-good{color:var(--green);font-weight:700}
+.calc-bad{color:var(--red);font-weight:700}
+@media(max-width:700px){.calc-fields{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .calculator-summary{grid-template-columns:1fr}}

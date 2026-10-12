@@ -352,7 +352,7 @@
       '<div class="field"><label for="wide-scope">Show</label><select id="wide-scope">'+
       selectOptions([{value:"all",label:"All items"},{value:"multi",label:"In 2+ shops"}],state.wideScope)+'</select></div></div>'+
       '<p class="notice">'+rows.length+' items shown · '+allOffers().length+' source offers · prices are not currency-converted</p>'+
-      '<div class="table-wrap wide-scroll"><table class="wide-table" id="wide-table">'+
+      '<div class="table-wrap wide-scroll" id="wide-scroll"><table class="wide-table" id="wide-table">'+
       '<thead><tr><th scope="col" aria-sort="'+(itemSortActive?(state.wideSortDirection==="asc"?"ascending":"descending"):"none")+'">'+itemSortButton+'</th>'+head+rateHead+'</tr></thead><tbody>'+
       (body||'<tr><td colspan="9" class="empty">No matching items</td></tr>')+'</tbody></table></div>'+
       '<p class="notice">— = item not listed in that shop · "Price unknown" = listing exists but its price could not be read · "for N units" indicates a bundle. "Reported price" flags figures not independently verified in a screenshot. CSV includes separate quantity, VIP requirement, and three currency-specific cost-per-minute columns. Queue speedups only—protective shields and stamina are not speedups.</p></section>';
@@ -415,6 +415,8 @@
       '<button class="btn primary" type="submit">Add local offer</button></form></section></aside></div>';
   }
   function render(){
+    // Only the wide table needs the full browser width.
+    q("app-container")?.classList?.toggle("wide-layout",state.tab==="wide");
     renderOverview();
     document.querySelectorAll("[data-tab]").forEach(b=>{
       b.classList.toggle("active",b.dataset.tab===state.tab);
@@ -431,9 +433,25 @@
     if(sort){
       const key=sort.dataset.wideSort;
       if(key==="item" || rateColumns.some(c=>c.key===key)){
+        // Sorting re-creates the table; retain its horizontal and vertical position.
+        const previous=q("wide-scroll");
+        const top=previous?.scrollTop ?? 0;
+        const left=previous?.scrollLeft ?? 0;
+        const pageTop=window.scrollY;
+        const pageLeft=window.scrollX;
         if(state.wideSortKey===key)state.wideSortDirection=state.wideSortDirection==="asc"?"desc":"asc";
         else {state.wideSortKey=key;state.wideSortDirection="asc";}
         save();render();
+        const current=q("wide-scroll");
+        if(current){
+          current.scrollTop=top;
+          current.scrollLeft=left;
+        }
+        const button=q("wide-table")?.querySelector?.('[data-wide-sort="'+key+'"]');
+        button?.focus?.({preventScroll:true});
+        if(typeof window.scrollTo==="function" && Number.isFinite(pageTop)){
+          window.scrollTo({top:pageTop,left:Number.isFinite(pageLeft)?pageLeft:0,behavior:"instant"});
+        }
       }
       return;
     }

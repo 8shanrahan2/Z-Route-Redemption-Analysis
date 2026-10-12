@@ -10,8 +10,6 @@ window.ZR_DATA = (() => {
   const itemRows = [
     ["blue_ticket","Blue recruitment ticket","Heroes","provisional"],
     ["gold_ticket","Gold fighter ticket","Fighter","provisional"],
-    ["advanced_reloc","Blue relocation item","Travel","provisional"],
-    ["purple_reloc","Purple relocation item","Travel","provisional"],
     ["clipboard","Clipboard/document","Other","unidentified"],
     ["food_10k","10,000 food","Resources","confirmed"],
     ["metal_10k","10,000 metal","Resources","confirmed"],
@@ -71,8 +69,8 @@ window.ZR_DATA = (() => {
   const rows = [
     ["blue_ticket","Diamond",400,1,null,null,"D1"],
     ["gold_ticket","Diamond",400,1,null,null,"D1"],
-    ["advanced_reloc","Diamond",500,1,null,null,"D1"],
-    ["purple_reloc","Diamond",1500,1,null,null,"D1"],
+    ["blue_reloc_flag","Diamond",500,1,null,null,"D1"],
+    ["purple_reloc_alt","Diamond",1500,1,null,null,"D1"],
     ["clipboard","Diamond",100,1,null,null,"D1"],
     ["food_10k","Diamond",10,1,null,null,"D1"],
     ["metal_10k","Diamond",10,1,null,null,"D1"],

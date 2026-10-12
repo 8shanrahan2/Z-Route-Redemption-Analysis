@@ -5,7 +5,7 @@
   if (!base) { document.getElementById("workspace").textContent = "Shop dataset did not load."; return; }
   const storageKey = "zr-shop-ledger-v1";
   const defaults = {
-    tab:"compare", selected:"fighter_part", vip:7, mode:"all",
+    tab:"compare", selected:"fighter_part", vip:7, mode:"all", rankShop:"Alliance",
     rates:{Alliance:"",Trial:"",Honor:""}, manual:{},
     changes:{}, additions:[], shop:"All", search:"", category:"All",
     includeReported:true
@@ -125,6 +125,46 @@
       '<div class="divider"></div><label class="field"><span>Include reported prices</span><select id="include-reported">'+selectOptions([{value:"yes",label:"Yes, clearly marked"},{value:"no",label:"No, screenshot only"}],state.includeReported?"yes":"no")+'</select></label></section>'+
       '</aside></div>';
   }
+
+  function rankings(){
+    const offers=allOffers().filter(o=>o.shop===state.rankShop && (state.includeReported||o.evidence!=="reported"));
+    const values=offers.map(o=>({o,benchmark:anchor(o.item)}))
+      .map(v=>({...v,ratio:perThousand(v.o,v.benchmark)}))
+      .filter(v=>v.ratio!=null && v.ratio>=0).sort((a,b)=>b.ratio-a.ratio);
+    const rows=values.map((v,index)=>{
+      const o=v.o, item=itemById(o.item);
+      return '<tr><td class="mono">'+(index+1)+'</td>'+
+        '<td><button class="linklike" data-select="'+esc(item.id)+'">'+esc(item.name)+'</button>'+
+        '<div class="notice">'+esc(item.category)+(item.confidence!=="confirmed"?' · '+esc(item.confidence):'')+'</div></td>'+
+        '<td class="mono">'+fmt(o.price)+' / '+fmt(o.quantity)+'</td>'+
+        '<td class="mono">'+fixed(v.benchmark.price)+' <span class="muted">('+esc(v.benchmark.source)+')</span></td>'+
+        '<td class="mono positive"><strong>'+fixed(v.ratio)+'</strong></td>'+
+        '<td class="mono">'+(o.limit==null?'—':fmt(o.limit))+'</td>'+
+        '<td>'+evid(o)+'</td></tr>';
+    }).join("");
+    return '<section class="panel"><p class="section-kicker">OPPORTUNITY COST / PURCHASE EFFICIENCY</p>'+
+      '<h2>Best value by currency</h2>'+
+      '<p class="note">Rank what 1,000 shop coins could buy, measured against the same item’s diamond listing. Higher numbers mean stronger implied diamond purchasing power, not a real exchange rate or an item priority recommendation.</p>'+
+      '<div class="controls-grid">'+
+      '<div class="field"><label for="rank-shop">Currency to analyze</label><select id="rank-shop">'+
+        selectOptions(["Alliance","Trial","Honor"],state.rankShop)+'</select></div>'+
+      '<div class="field"><label for="mode-select">Diamond benchmark</label><select id="mode-select">'+
+        selectOptions([{value:"all",label:"Cheapest Diamond or eligible VIP price"},{value:"diamond",label:"Regular Diamond Shop only"}],state.mode)+
+        '</select></div><div class="field"><label for="vip-select">Your VIP level</label><select id="vip-select">'+
+        selectOptions(Array.from({length:19},(_,i)=>({value:i,label:"VIP "+i})),state.vip)+
+        '</select></div><div class="field"><label for="include-reported">Reported prices</label><select id="include-reported">'+
+        selectOptions([{value:"yes",label:"Include, with warning"},{value:"no",label:"Exclude unverified"}],state.includeReported?"yes":"no")+
+        '</select></div></div>'+
+      '<div class="hint">For example, a Fighter Part at 400 diamonds in the VIP shop versus 800 Honor medals yields 500 diamond-equivalent buying power per 1,000 Honor medals. For another item, the ratio can be completely different. These rankings compare <strong>purchasing opportunities</strong>, not the intrinsic value of currencies.</div>'+
+      '<p class="notice">'+values.length+' entries with a comparable diamond benchmark · '+
+        (offers.length-values.length)+' offer(s) without a diamond reference or visible price.</p>'+
+      '<div class="table-wrap"><table><thead><tr><th>#</th><th>Item</th><th>Shop price / qty</th>'+
+        '<th>Diamond reference / item</th><th>◇ per 1,000 coins</th><th>Limit</th><th>Evidence</th></tr></thead>'+
+        '<tbody>'+(rows||'<tr><td colspan="7" class="empty">No comparable items. Select a different reference or add custom prices in Compare value.</td></tr>')+
+        '</tbody></table></div>'+
+      '<p class="notice">Some icon identifications and offer contents are provisional. A large ratio can simply mean the diamond-listed version is overpriced. Check quantity and actual item utility before purchasing.</p>'+
+      '</section>';
+  }
   function catalog(){
     const list=allOffers().filter(o=>{
       const item=itemById(o.item);
@@ -184,7 +224,7 @@
       b.classList.toggle("active",b.dataset.tab===state.tab);
       b.setAttribute("aria-current",b.dataset.tab===state.tab?"page":"false");
     });
-    q("workspace").innerHTML = state.tab==="compare" ? compare() : state.tab==="catalog" ? catalog() : state.tab==="vip" ? vip() : dataPage();
+    q("workspace").innerHTML = state.tab==="compare" ? compare() : state.tab==="rankings" ? rankings() : state.tab==="catalog" ? catalog() : state.tab==="vip" ? vip() : dataPage();
   }
   document.addEventListener("click", e=>{
     const tab=e.target.closest("[data-tab]");
@@ -220,6 +260,7 @@
     else if(t.id==="mode-select")state.mode=t.value;
     else if(t.id==="vip-select")state.vip=Number(t.value);
     else if(t.id==="include-reported")state.includeReported=t.value==="yes";
+    else if(t.id==="rank-shop")state.rankShop=t.value;
     else if(t.id==="shop-filter")state.shop=t.value;
     else if(t.id==="category-filter")state.category=t.value;
     else if(t.id==="manual-anchor"){

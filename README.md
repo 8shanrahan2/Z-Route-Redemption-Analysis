@@ -5,6 +5,8 @@ A dependency-free static web app for comparing the **Diamond**, **Alliance**, **
 ## Features
 
 - Compare 77 screenshot- and player-report-derived offers from five shops, with purchase limits, restock schedules, searchable catalog and evidence markers.
+- Show **authentic Diamond, Alliance, Trial, and Honor currency icons** extracted from the game's screenshots in the comparison, value ranking and catalog currency columns; the Diamond and VIP shops use the same Diamond icon.
+- Show **all four confirmed VIP-gated offers directly in the Full Catalog**, with required VIP levels and prices, even when the selected VIP level is insufficient. Gating is only known for VIP 8–11; earlier unlock requirements must not be guessed.
 - Calculate **implied diamond purchasing power per 1,000 shop currency** from matching diamond-priced items; the **Value rankings** tab orders offers within each currency by that benchmark.
 - Enter your own *subjective* diamond value per 1,000 Alliance / Trial / Honor currency units to see normalized costs and the least-expensive accessible shop. These are opportunity-cost assumptions, **not actual exchange rates**.
 - Choose between the regular Diamond shop baseline or the cheapest eligible Diamond/VIP offer as the item reference price.
@@ -40,11 +42,11 @@ The site includes a lightweight **52-icon WebP sprite** at `assets/item-icons.we
 
 ## Smoke tests
 
-Run `node tests/smoke.cjs` (Node 18+, no dependencies). Checks item integrity, cross-shop equivalences, VIP gates and the rendering of all five app sections. The UI/data smoke tests were also run using a JavaScript runtime against the GitHub-committed source.
+Run `node tests/smoke.cjs` (Node 18+, no dependencies). Checks item integrity, cross-shop equivalences, VIP gates, all four currency icons and the rendering of all five app sections. The UI/data smoke tests were also run using a JavaScript runtime against the GitHub-committed source.
 
 ## Sources and caveats
 
-- Initial 10 shop-price screenshots and subsequent labeled tooltip screenshots provided by the user on October 12, 2026. Original shop screenshot codes in `data/shop-data.js`: D1=Diamond, A2–A4=Alliance, V5–V7=VIP, T8–T9=Trial, H10=Honor.
+- Initial 10 shop-price screenshots and subsequent labeled tooltip screenshots provided by the user on October 12, 2026. The four currency symbols in `assets/currency-icons.webp` are crops from those same screenshots, and `assets/item-icons.webp` contains 52 item icons. Original shop screenshot codes in `data/shop-data.js`: D1=Diamond, A2–A4=Alliance, V5–V7=VIP, T8–T9=Trial, H10=Honor.
 - A sold-out Alliance Fighter Part has **no visible price**. The 1,000 Alliance Coin price is a user-provided estimate / prior guide report, not verified in the screenshot. It is flagged `reported`.
 - The VIP 8 (3-hr Speedup), VIP 9 (Conductive Crystal), VIP 10 (8-hr Speedup), VIP 11 (UR Omni Hero Shard) gates are established; others are unknown. The separately published [Japanese VIP guide](https://gamesakidori.com/z-route/vip-guide/) reports gated offerings between levels 4–11 but does not publish a complete unlock-to-item list.
 - The [ZR Reference project](https://github.com/JeffxLabs/zrouteredemption) publishes progression data, but no canonical shop-price dataset as of the source review.

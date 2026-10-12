@@ -97,9 +97,17 @@ window.ZR_DATA = (() => {
     orange_map:"Key material for promoting UR gear to 1–4 stars. Promotion unlocks after UR gear reaches Lv.40.",
     orange_chest:"Random item: Gold Lion, Gold Wolf, Gold Eagle, Clock Tower, Merry-Go-Round, Arcade Memorial Wall, or Mini Golf Course."
   };
+  // Only actual queue speedups have a time denominator; shields, stamina, etc. do not.
+  // Durations are minutes PER speedup item, separate from offer.quantity (pack size).
+  const speedupMinutesById = {
+    build_8h:480, research_8h:480, train_8h:480, heal_8h:480,
+    build_1h:60, research_1h:60, train_1h:60, heal_1h:60,
+    speed_5m:5, universal_1h:60, vip_3h:180, universal_8h:480
+  };
   // iconIndex matches the 52-tile sprite order in assets/item-icons.webp (8 columns, 52px tiles).
   const items = itemRows.map((r,iconIndex) => ({id:r[0],name:r[1],category:r[2],confidence:r[3],iconIndex,
-    description:officialDescriptions[r[0]] || ""}));
+    description:officialDescriptions[r[0]] || "",
+    speedupMinutes:speedupMinutesById[r[0]] ?? null}));
   // [item id, shop, price, quantity, visible remaining/limit, minimum VIP if explicitly locked, screenshot, evidence, note]
   const rows = [
     ["blue_ticket","Diamond",400,1,null,null,"D1"],

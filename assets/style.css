@@ -97,3 +97,16 @@ footer a{text-decoration:none}
 .notice{font-size:11px;color:var(--muted);margin-top:10px}
 @media(max-width:920px){.layout{grid-template-columns:1fr}.stat-grid{grid-template-columns:repeat(2,1fr)}.level-grid{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:620px){.container{padding:0 13px}.masthead{padding:23px 0 20px;gap:12px}.brand-icon{width:50px;height:50px;font-size:18px}.sourced-pill{display:none}.eyebrow{font-size:8px}.tabs button{padding:12px 13px;font-size:12px}.stat{padding:13px}.stat .num{font-size:24px}.panel{padding:16px}.controls-grid,.filterbar,.data-form{grid-template-columns:1fr}.level-grid{grid-template-columns:1fr 1fr}.level-card{padding:13px}.level-card .level{font-size:28px}footer{flex-wrap:wrap}.topline{letter-spacing:.1em;font-size:8px}}
+
+
+/* Screenshot-extracted game item art. 52 items, eight columns at 52x52px per tile. */
+.item-icon{display:inline-flex;align-items:center;justify-content:center;flex:0 0 52px;width:52px;height:52px;
+  background-image:url("./item-icons.webp");background-repeat:no-repeat;background-size:416px 364px;
+  border:1px solid #9d855a;border-radius:5px;box-shadow:0 2px 7px #0005;vertical-align:middle}
+.item-icon-missing{background-image:none;background-color:#2d434b;color:var(--gold);font-size:19px}
+.item-name-wrap{display:flex;align-items:center;gap:12px;min-width:176px}
+.item-name-wrap>div{min-width:0}
+.item-display{display:flex;align-items:center;gap:12px;margin-top:17px;padding:10px 13px;background:#12252c;border:1px solid #3c5359;border-radius:9px;font-family:'Space Grotesk',sans-serif;font-size:17px}
+.vip-icon{margin:12px 0}
+.vip-icon .item-icon{width:52px;height:52px}
+@media(max-width:620px){.item-name-wrap{gap:9px;min-width:164px}.item-display{font-size:15px}}

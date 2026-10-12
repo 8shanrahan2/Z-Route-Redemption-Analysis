@@ -95,7 +95,15 @@ assert.match(rendered(), /<th>Currency<\/th>/);
 assert.match(rendered(), /class="item-icon"/);
 handlers.change({target:{id:"rank-shop",value:"Honor",dataset:{}}});
 assert.match(rendered(), /Fighter Parts/);
+const wideClasses=new Set();
+elements["app-container"]={classList:{toggle(name,enabled){
+  if(enabled)wideClasses.add(name); else wideClasses.delete(name);
+}}};
 tab("wide");
+assert(wideClasses.has("wide-layout"),"Wide tab should expand container to viewport width");
+assert.match(text("index.html"), /id="app-container"/);
+assert.match(text("assets/style.css"), /\.container\.wide-layout\s*\{/);
+assert.match(rendered(), /id="wide-scroll"/);
 assert.match(rendered(), /Wide price table/);
 assert.match(rendered(), /id="wide-table"/);
 assert.match(rendered(), /id="wide-download"/);
@@ -135,11 +143,30 @@ const fighterWideRow=getWideRow("fighter_part");
 assert(fighterWideRow.includes("reported price"));
 assert(getWideRow("card_10k").includes("for 10,000 units"));
 for (const lvl of [8,9,10]) assert(rendered().includes("VIP "+lvl+" · locked"));
+// Simulate the browser replacing the scroller node when innerHTML changes.
+let currentHTML=elements.workspace.innerHTML, focusPreserved=false, lastPageScroll=null;
+Object.defineProperty(elements.workspace,"innerHTML",{
+  configurable:true,
+  get(){return currentHTML;},
+  set(html){
+    currentHTML=html;
+    elements["wide-scroll"]={scrollTop:0,scrollLeft:0};
+    elements["wide-table"]={querySelector:()=>({focus:opts=>{focusPreserved=opts.preventScroll===true;}})};
+  }
+});
+elements["wide-scroll"]={scrollTop:176,scrollLeft:292};
+sandbox.window.scrollY=685;
+sandbox.window.scrollX=0;
+sandbox.window.scrollTo=opts=>{lastPageScroll=opts;};
 const visibleRows = () => [...rendered().matchAll(/data-wide-item="([^"]+)"/g)].map(m=>m[1]);
 const clickSort=key => handlers.click({target:{closest(selector){
   return selector==="[data-wide-sort]" ? {dataset:{wideSort:key}}:null;
 }}});
 clickSort("alliance");
+assert.equal(elements["wide-scroll"].scrollTop,176,"Vertical scroll position should survive sorting");
+assert.equal(elements["wide-scroll"].scrollLeft,292,"Horizontal scroll position should survive sorting");
+assert.equal(lastPageScroll.top,685,"Page scroll position should survive sorting");
+assert(focusPreserved,"Sorting should restore focused header without scrolling it into view");
 assert(rendered().includes('aria-sort="ascending"'));
 assert.equal(visibleRows()[0],"build_8h"); // 12.5 coins/min, first of tied 8h speeds
 assert(wideCells(visibleRows().at(-1)).slice(5).every(cell=>cell.trim()==="—"),"No-rate items must sort last");
@@ -152,6 +179,7 @@ assert(rendered().includes('data-wide-sort="diamonds"'));
 clickSort("trial");
 assert.equal(visibleRows()[0],"universal_1h"); // 8.333 trial medals/min
 tab("catalog");
+assert(!wideClasses.has("wide-layout"),"Other tabs should use the narrower reading layout");
 assert.match(rendered(), /Shop price catalog/);
 assert.match(rendered(), /class="item-icon"/);
 assert.match(rendered(), /VIP level-gated offers/);

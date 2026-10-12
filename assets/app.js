@@ -112,6 +112,7 @@
         '<div class="field"><label for="manual-anchor">Custom diamond price per unit</label><input id="manual-anchor" type="number" step="any" min="0.01" placeholder="Use observed price" value="'+esc(state.manual[item.id]??"")+'"></div>'+
       '</div><div class="value-hero"><div><p class="eyebrow">BENCHMARK / 1 ITEM</p><div class="bigval">'+(benchmark?fmt(benchmark.price)+" ◇":"Not available")+'</div><p class="note">'+esc(benchmark?.source||"Add a custom price or enable VIP benchmarks")+'</p></div>'+
       '<div><span class="badge '+(item.confidence==="confirmed"?"verified":"provisional")+'">Name: '+esc(item.confidence)+'</span></div></div>'+
+      '<p class="note" style="margin-bottom:12px">'+esc(item.description||"No verified in-game tooltip yet.")+'</p>'+
       '<div class="table-wrap"><table><thead><tr><th>Shop</th><th>Price</th><th>Per unit</th><th>◇ / 1K coins</th><th>Modeled ◇ / item</th><th>Access / proof</th><th></th></tr></thead><tbody>'+
       (tableRows||'<tr><td colspan="7">No offers yet.</td></tr>')+'</tbody></table></div>'+
       '<p class="notice">★ = lowest modeled cost among eligible listings with a known currency valuation. Purchase limits and currency availability still matter. The "◇ / 1K coins" column compares each shop price against the diamond benchmark, not a transferable exchange rate.</p>'+
@@ -194,14 +195,14 @@
       '<p class="note">Only visible padlock labels are treated as established minimum VIP levels. Other VIP items showed no padlock in these screenshots, but that <strong>does not establish they unlock at VIP 0</strong>.</p>'+
       '<div class="controls-grid"><div class="field"><label for="vip-select">Preview your VIP level</label><select id="vip-select">'+selectOptions(Array.from({length:19},(_,i)=>({value:i,label:"VIP "+i})),state.vip)+'</select></div></div>'+
       '<div class="level-grid">'+unlocks.map(o=>'<article class="level-card"><div class="section-kicker">VIP UNLOCK</div><div class="level">'+o.minVip+'</div>'+
-        '<h3>'+esc(itemById(o.item).name)+'</h3><p class="desc">'+esc(o.source)+' · screenshot confirmation</p>'+
+        '<h3>'+esc(itemById(o.item).name)+'</h3><p class="desc">'+esc(itemById(o.item).description||"Tooltip not transcribed.")+'</p><p class="desc">'+esc(o.source)+' · screenshot confirmation</p>'+
         '<p class="price">'+fmt(o.price)+' diamonds</p><p style="margin-top:10px">'+access(o)+'</p></article>').join("")+'</div>'+
       '<div class="hint">A Japanese client guide (v1.37.07) reports VIP Shop items gated between levels 4 and 11, but does not list each item\'s gate. Missing VIP 4–7 entries are deliberately unfilled. <a href="https://gamesakidori.com/z-route/vip-guide/" target="_blank" rel="noopener">Read guide ↗</a></div></section>';
   }
   function dataPage(){
     const custom=state.additions;
     return '<div class="layout"><div class="stack"><section class="panel"><p class="section-kicker">AUDIT TRAIL</p><h2>Sources &amp; limitations</h2>'+
-      '<p class="note">All initial listings are from your ten October 12, 2026 screenshots. Labels for items that cannot be identified from the icons are provisional. Screenshot price and unlock observations are stronger evidence than third-party guides.</p>'+
+      '<p class="note">Prices are derived from the initial shop screenshots and item names from additional player-supplied official tooltips. Some labels remain provisional. Stamina at 36 diamonds is user-reported, and its pack size is unknown. Screenshot prices and unlock observations are stronger evidence than third-party guides.</p>'+
       '<div class="table-wrap"><table><thead><tr><th>Shop</th><th>Currency</th><th>Restock</th><th>Images</th></tr></thead><tbody>'+
       base.shops.map(s=>'<tr><td>'+esc(s.id)+'</td><td>'+esc(s.currency)+'</td><td>'+esc(s.reset)+'</td><td>'+esc(({Diamond:"D1",Alliance:"A2–A4",VIP:"V5–V7",Trial:"T8–T9",Honor:"H10"})[s.id])+'</td></tr>').join("")+'</tbody></table></div>'+
       '<div class="hint">The Alliance Fighter Part is sold out, so its price is not readable. The 1,000 Alliance Coin value comes from the user\'s example and a prior community claim; it is marked as <strong>reported</strong>. The game\'s item tooltip is needed to confirm some icon-only labels. Golden fighter tickets and gear-shaped Fighter Parts are separate items.</div>'+

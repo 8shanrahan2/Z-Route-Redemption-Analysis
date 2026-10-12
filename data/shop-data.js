@@ -97,7 +97,8 @@ window.ZR_DATA = (() => {
     orange_map:"Key material for promoting UR gear to 1–4 stars. Promotion unlocks after UR gear reaches Lv.40.",
     orange_chest:"Random item: Gold Lion, Gold Wolf, Gold Eagle, Clock Tower, Merry-Go-Round, Arcade Memorial Wall, or Mini Golf Course."
   };
-  const items = itemRows.map(r => ({id:r[0],name:r[1],category:r[2],confidence:r[3],
+  // iconIndex matches the 52-tile sprite order in assets/item-icons.webp (8 columns, 52px tiles).
+  const items = itemRows.map((r,iconIndex) => ({id:r[0],name:r[1],category:r[2],confidence:r[3],iconIndex,
     description:officialDescriptions[r[0]] || ""}));
   // [item id, shop, price, quantity, visible remaining/limit, minimum VIP if explicitly locked, screenshot, evidence, note]
   const rows = [

@@ -167,3 +167,17 @@ footer a{text-decoration:none}
 .wide-unit-entry .currency-icon{flex:0 0 28px}
 .wide-rate-separator{color:var(--muted);margin-right:4px}
 @media(max-width:620px){.wide-table{min-width:1190px}.wide-table thead th:last-child{width:244px}}
+
+/* Three independent, sortable currency-specific speedup rate columns. */
+.wide-table{min-width:1540px}
+.wide-table thead th:nth-last-child(-n+3){min-width:166px;width:170px}
+.wide-minutes-cell{min-width:166px;max-width:240px;line-height:1.7}
+.wide-sort-button{width:100%;display:flex;align-items:center;justify-content:flex-start;gap:5px;
+  background:transparent;border:0;padding:2px 0;color:inherit;text-align:left;
+  font-size:inherit;font-weight:700;letter-spacing:inherit;text-transform:inherit;cursor:pointer}
+.wide-sort-button:hover,.wide-sort-button:focus-visible{color:var(--gold)}
+.wide-sort-button.active{color:var(--gold)}
+.wide-sort-arrow{font-size:14px;margin-left:auto;flex-shrink:0;opacity:.72}
+.wide-rate-shop{font-size:10px;color:var(--muted);white-space:nowrap}
+.wide-unit-entry{display:inline-flex;align-items:center;white-space:nowrap;vertical-align:middle}
+@media(max-width:620px){.wide-table{min-width:1430px}.wide-table thead th:nth-last-child(-n+3){min-width:155px;width:160px}}

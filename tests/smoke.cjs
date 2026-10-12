@@ -22,7 +22,7 @@ const sandbox = {
 vm.runInNewContext(text("data/shop-data.js"), sandbox, {filename: "shop-data.js"});
 const {items, offers, shops} = sandbox.window.ZR_DATA;
 assert.equal(shops.length, 5);
-assert.equal(offers.length, 77);
+assert.equal(offers.length, 78);
 assert.equal(new Set(offers.map(x => x.id)).size, offers.length);
 const knownItems = new Set(items.map(x => x.id));
 for (const o of offers) {
@@ -39,6 +39,19 @@ assert.deepEqual(Array.from(universal), ["Trial", "VIP"]);
 assert(offers.some(o => o.item === "fighter_part" && o.shop === "Alliance" && o.evidence === "reported"));
 const gates = offers.filter(o => o.shop === "VIP" && o.minVip !== null).map(o => o.minVip).sort((a,b) => a-b);
 assert.deepEqual(Array.from(gates), [8, 9, 10, 11]);
+const official = Object.fromEntries(items.map(item => [item.id,item]));
+assert.equal(official.hero_gold.name, "UR Omni Hero Shard");
+assert.equal(official.gold_ticket.name, "Recruit Card");
+assert.equal(official.orange_chest.name, "UR Decoration Chest");
+assert.equal(official.orange_map.name, "UR Gear Blueprint");
+assert.equal(official.fancy_chest.name, "Mythic Trial Chest");
+assert.equal(official.card_10k.name, "Combat Chip");
+assert.equal(official.vip_gray_material.name, "Conductive Crystal");
+assert.equal(official.fighter_chest_3.name, "Lv.3 Fighter Component Chest");
+assert.equal(offers.find(o => o.item === "card_10k" && o.shop === "Trial").quantity, 10000);
+const stamina = offers.find(o => o.item === "stamina_vip" && o.shop === "VIP");
+assert.equal(stamina.price, 36);
+assert.equal(stamina.evidence, "reported");
 vm.runInNewContext(text("assets/app.js"), sandbox, {filename: "app.js"});
 const rendered = () => elements.workspace.innerHTML;
 assert.match(rendered(), /Fighter part/);

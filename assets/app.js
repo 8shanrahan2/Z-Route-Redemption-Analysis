@@ -247,16 +247,44 @@
         (meta.length?'<span class="wide-note">'+esc(meta.join(" · "))+'</span>':"")+'</div>';
     }).join("")+'</td>';
   };
+  const minuteRate = offer => {
+    const minutes=itemById(offer.item).speedupMinutes;
+    return Number.isFinite(minutes) && minutes>0 && priceUnit(offer)!=null ?
+      priceUnit(offer)/minutes : null;
+  };
+  const fmtMinuteRate = value => Number(value).toLocaleString("en-US",{maximumFractionDigits:3});
+  // The list follows the same left-to-right order as the shop price columns.
+  // Never compare currencies as if they were interchangeable.
+  const normalizedMinuteRates = (item, shops) => {
+    if (!(item.speedupMinutes>0)) return [];
+    return wideColumns.flatMap(column=>sortedShopOffers(shops.get(column.shop))
+      .filter(o=>minuteRate(o)!=null)
+      .map(o=>({offer:o,shop:column.shop,currency:column.currency,perMinute:minuteRate(o)})));
+  };
+  const wideMinuteCell = (item,shops) => {
+    if (!(item.speedupMinutes>0)) return '<td class="wide-empty" title="Not a queue speedup">—</td>';
+    const rates=normalizedMinuteRates(item,shops);
+    if(!rates.length) return '<td class="wide-unavailable">Price unknown</td>';
+    return '<td class="wide-minutes-cell">'+rates.map((r,i)=>{
+      const display=fmtMinuteRate(r.perMinute);
+      return (i?'<span class="wide-rate-separator">, </span>':"")+
+        '<span class="wide-unit-entry" title="'+esc(r.shop+' shop: '+display+' '+r.currency+' per minute')+'">'+
+          '<span class="mono">'+display+'</span> '+currencyIcon(r.currency)+'</span>';
+    }).join("")+'</td>';
+  };
+  const normalizedMinuteCsv = (item,shops) => normalizedMinuteRates(item,shops)
+    .map(r=>fmtMinuteRate(r.perMinute)+" "+r.currency+" / min ("+r.shop+")").join(", ");
   const escapeCsv = value => '"'+String(value??"").replace(/"/g,'""')+'"';
   function downloadWideCsv(){
     const head=["Item","Category",...wideColumns.map(c=>c.label+" price"),
-      ...wideColumns.map(c=>c.label+" quantity"),"VIP required"];
+      ...wideColumns.map(c=>c.label+" quantity"),"VIP required","Cost per minute by shop"];
     const lines=[head,...wideRows().map(({item,shops})=>{
       const byShop=wideColumns.map(c=>sortedShopOffers(shops.get(c.shop)));
       return [item.name,item.category,
         ...byShop.map(list=>list.map(o=>o.price??"").join(" | ")),
         ...byShop.map(list=>list.map(o=>o.quantity).join(" | ")),
-        (byShop[2]||[]).map(o=>o.minVip??"").join(" | ")];
+        (byShop[2]||[]).map(o=>o.minVip??"").join(" | "),
+        normalizedMinuteCsv(item,shops)];
     })].map(row=>row.map(escapeCsv).join(","));
     const blob=new Blob(["\uFEFF"+lines.join("\r\n")],{type:"text/csv;charset=utf-8"});
     const url=URL.createObjectURL(blob),link=document.createElement("a");
@@ -272,11 +300,12 @@
       '<tr data-wide-item="'+esc(item.id)+'"><th scope="row" class="wide-item-cell">'+
       '<div class="item-name-wrap">'+itemIcon(item.id)+'<div><button class="linklike" data-select="'+esc(item.id)+'">'+
       esc(item.name)+'</button><div class="notice">'+esc(item.category)+'</div></div></div></th>'+
-      wideColumns.map(c=>widePriceCell(shops.get(c.shop),c.shop)).join("")+'</tr>').join("");
+      wideColumns.map(c=>widePriceCell(shops.get(c.shop),c.shop)).join("")+
+      wideMinuteCell(item,shops)+'</tr>').join("");
     return '<section class="panel"><div class="section-head"><div>'+
       '<p class="section-kicker">ITEM × SHOP / DENORMALIZED</p><h2>Wide price table</h2></div>'+
       '<button class="btn ghost" id="wide-download">Download CSV</button></div>'+
-      '<p class="note">Each item appears once, with prices from all five shops in separate columns. Amounts are the listed price for the offered quantity; an empty location means it was not observed, not that it is free. VIP-locked offers remain visible.</p>'+
+      '<p class="note">Each item appears once, with prices from all five shops in separate columns. Amounts are the listed price for the offered quantity; an empty location means it was not observed, not that it is free. The Cost / min column divides the price by the total minutes purchased and lists each shop currency with its icon. VIP-locked offers remain visible.</p>'+
       '<div class="filterbar wide-filters">'+
       '<div class="field"><label for="wide-search">Search items</label><input id="wide-search" placeholder="UR Omni Hero Shard…" value="'+esc(state.wideSearch)+'"></div>'+
       '<div class="field"><label for="wide-category">Category</label><select id="wide-category">'+
@@ -285,9 +314,9 @@
       selectOptions([{value:"all",label:"All items"},{value:"multi",label:"In 2+ shops"}],state.wideScope)+'</select></div></div>'+
       '<p class="notice">'+rows.length+' items shown · '+allOffers().length+' source offers · prices are not currency-converted</p>'+
       '<div class="table-wrap wide-scroll"><table class="wide-table" id="wide-table">'+
-      '<thead><tr><th scope="col">Item</th>'+head+'</tr></thead><tbody>'+
-      (body||'<tr><td colspan="6" class="empty">No matching items</td></tr>')+'</tbody></table></div>'+
-      '<p class="notice">— = item not listed in that shop · "Price unknown" = listing exists but its price could not be read · "for N units" indicates a bundle. "Reported price" flags figures not independently verified in a screenshot. CSV includes separate quantity and VIP requirement columns.</p></section>';
+      '<thead><tr><th scope="col">Item</th>'+head+'<th scope="col">Cost / min</th></tr></thead><tbody>'+
+      (body||'<tr><td colspan="7" class="empty">No matching items</td></tr>')+'</tbody></table></div>'+
+      '<p class="notice">— = item not listed in that shop · "Price unknown" = listing exists but its price could not be read · "for N units" indicates a bundle. "Reported price" flags figures not independently verified in a screenshot. CSV includes separate quantity, VIP requirement, and currency-labeled cost-per-minute columns. Queue speedups only—protective shields and stamina are not speedups.</p></section>';
   }
 
   function catalog(){

@@ -4,8 +4,8 @@ A dependency-free static web app for comparing the **Diamond**, **Alliance**, **
 
 ## Features
 
-- Compare screenshot-sourced prices and purchase limits across shops, searchable by item or shop.
-- Calculate **implied diamond value per 1,000 shop currency** from matching diamond-priced items.
+- Compare 77 screenshot-derived offers from five shops, with purchase limits, restock schedules, searchable catalog and evidence markers.
+- Calculate **implied diamond purchasing power per 1,000 shop currency** from matching diamond-priced items; the **Value rankings** tab orders offers within each currency by that benchmark.
 - Enter your own *subjective* diamond value per 1,000 Alliance / Trial / Honor currency units to see normalized costs and the least-expensive accessible shop. These are opportunity-cost assumptions, **not actual exchange rates**.
 - Choose between the regular Diamond shop baseline or the cheapest eligible Diamond/VIP offer as the item reference price.
 - Set VIP level to see known VIP unlock gates (VIP 8–11). Items without a displayed lock are **not** proven available at VIP 0.
@@ -16,7 +16,11 @@ A dependency-free static web app for comparing the **Diamond**, **Alliance**, **
 
 No build tools or dependencies. Open `index.html` locally, or serve the root folder using any static HTTP server.
 
-**GitHub Pages:** Repository → Settings → Pages → **Deploy from a branch** → `main` → `/ (root)` → Save. Once enabled, the app is at `https://8shanrahan2.github.io/Z-Route-Redemption-Analysis/`.
+**GitHub Pages (not enabled through this app):** Repository → Settings → Pages → **Deploy from a branch** → `main` → `/ (root)` → Save. Once enabled, the app is at `https://8shanrahan2.github.io/Z-Route-Redemption-Analysis/`.
+
+## Smoke tests
+
+Run `node tests/smoke.cjs` (Node 18+, no dependencies). Checks item integrity, cross-shop equivalences, VIP gates and the rendering of all five app sections. The UI/data smoke tests were also run using a JavaScript runtime against the GitHub-committed source.
 
 ## Sources and caveats
 
@@ -24,7 +28,7 @@ No build tools or dependencies. Open `index.html` locally, or serve the root fol
 - A sold-out Alliance Fighter Part has **no visible price**. The 1,000 Alliance Coin price is a user-provided estimate / prior guide report, not verified in the screenshot. It is flagged `reported`.
 - The VIP 8 (2-hour speedup), VIP 9 (gray item), VIP 10 (8-hour speedup), VIP 11 (gold shard) gates are visible; others are unknown. The separately published [Japanese VIP guide](https://gamesakidori.com/z-route/vip-guide/) reports gated offerings between levels 4–11 but does not publish a complete unlock-to-item list.
 - The [ZR Reference project](https://github.com/JeffxLabs/zrouteredemption) publishes progression data, but no canonical shop-price dataset as of the source review.
-- Icon-only product identifications are intentionally tentative and should be corrected by in-game item-detail screenshots. **Similar-looking gold tickets and metal gears are different items**; do not merge them.
+- Icon-only product identifications are intentionally tentative and should be corrected by in-game item-detail screenshots. **Similar-looking gold tickets and metal gears are different items**; do not merge them. Universal speedups are also tracked separately from construction/research/training speedups. Two relocation icons with visually matching designs are linked across Diamond and Alliance/VIP shops.
 - The **VIP shop** is diamond-priced but weekly discounted; it isn't a separate currency. Source figures are not guaranteed to remain fixed after game updates.
 
 ## Data fields

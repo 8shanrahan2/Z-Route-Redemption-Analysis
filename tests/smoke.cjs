@@ -74,18 +74,31 @@ vm.runInNewContext(text("assets/app.js"), sandbox, {filename: "app.js"});
 const rendered = () => elements.workspace.innerHTML;
 assert.match(rendered(), /Fighter Parts/);
 assert.match(rendered(), /class="item-icon"/);
+assert.match(rendered(), /class="currency-icon"/);
 assert.match(rendered(), /500/); // 400 VIP diamonds / 800 honor medals * 1000
 const tab = name => handlers.click({
   target: {closest(selector) { return selector === "[data-tab]" ? {dataset: {tab:name}} : null; }}
 });
 tab("rankings");
 assert.match(rendered(), /Best value by currency/);
+assert.match(rendered(), /<th>Currency<\/th>/);
 assert.match(rendered(), /class="item-icon"/);
 handlers.change({target:{id:"rank-shop",value:"Honor",dataset:{}}});
 assert.match(rendered(), /Fighter Parts/);
 tab("catalog");
 assert.match(rendered(), /Shop price catalog/);
 assert.match(rendered(), /class="item-icon"/);
+assert.match(rendered(), /VIP level-gated offers/);
+assert.match(rendered(), /<th>VIP required<\/th>/);
+for (const [level,price] of [[8,192],[9,64],[10,480],[11,300]]) {
+  assert.match(rendered(), new RegExp("Requires VIP "+level));
+  assert.match(rendered(), new RegExp("VIP "+level));
+}
+assert.equal((rendered().match(/class="catalog-vip-offer"/g)||[]).length,4);
+for (const currency of ["Diamonds","Alliance coins","Trial medals","Honor medals"]) {
+  assert(rendered().includes('aria-label="'+currency+'"'),"No icon for "+currency);
+}
+assert.match(rendered(), /<th>Currency<\/th>/);
 tab("vip");
 assert.match(rendered(), /VIP 11/);
 assert.match(rendered(), /class="item-icon"/);

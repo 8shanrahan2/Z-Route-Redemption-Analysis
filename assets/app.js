@@ -4,11 +4,13 @@
   const base = window.ZR_DATA;
   if (!base) { document.getElementById("workspace").textContent = "Shop dataset did not load."; return; }
   const storageKey = "zr-shop-ledger-v1";
+  const speedups = window.ZR_SPEEDUPS;
   const defaults = {
     tab:"compare", selected:"fighter_part", vip:7, mode:"all", rankShop:"Alliance",
     rates:{Alliance:"",Trial:"",Honor:""}, manual:{},
     changes:{}, additions:[], shop:"All", search:"", category:"All",
-    includeReported:true, wideSearch:"", wideCategory:"All", wideScope:"all", wideSortKey:"item", wideSortDirection:"asc"
+    includeReported:true, wideSearch:"", wideCategory:"All", wideScope:"all", wideSortKey:"item", wideSortDirection:"asc",
+    calcHours:"1",calcMinutes:"0",calcSeconds:"0",calcQueue:"all"
   };
   let state = {...defaults};
   try {
@@ -229,17 +231,18 @@
         (state.wideScope!=="multi" || shops.size>=2);
     }).map(item=>({item,shops:groups.get(item.id)}));
     const sortColumn=rateColumns.find(c=>c.key===state.wideSortKey);
+    const sortBreak=state.wideSortKey==="breakEven";
     const direction=state.wideSortDirection==="desc" ? -1 : 1;
     rows.sort((a,b)=>{
-      if(sortColumn){
-        const av=lowestMinuteRate(a.item,a.shops,sortColumn);
-        const bv=lowestMinuteRate(b.item,b.shops,sortColumn);
+      if(sortColumn || sortBreak){
+        const av=sortBreak?lowestBreakEven(a.item,a.shops):lowestMinuteRate(a.item,a.shops,sortColumn);
+        const bv=sortBreak?lowestBreakEven(b.item,b.shops):lowestMinuteRate(b.item,b.shops,sortColumn);
         // Missing prices and non-speedups sort LAST regardless of direction.
         if(av==null && bv!=null)return 1;
         if(bv==null && av!=null)return -1;
         if(av!=null && bv!=null && av!==bv)return (av-bv)*direction;
       }
-      return a.item.name.localeCompare(b.item.name)*(sortColumn?1:direction);
+      return a.item.name.localeCompare(b.item.name)*((sortColumn||sortBreak)?1:direction);
     });
     return rows;
   };
@@ -307,18 +310,57 @@
       currencyIcon(column.currency)+'<span>'+esc(column.label)+'</span><span class="wide-sort-arrow" aria-hidden="true">'+arrow+'</span>'+
       '</button></th>';
   };
+
+  // Compare buying one offer (one item or an entire pack) to immediately
+  // finishing a timer that fits within the purchased time. Currency conversions
+  // are subjective values set by the player, not in-game exchange rates.
+  const breakEvenOffers=(item,shops)=>{
+    if(!(item.speedupMinutes>0))return [];
+    return [...(shops?.values()||[])].flatMap(x=>x).flatMap(o=>{
+      if(priceUnit(o)==null||!(o.quantity>0))return [];
+      const perUnit=modeledCost(o);
+      if(perUnit==null)return [];
+      const diamondCost=perUnit*o.quantity;
+      const first=speedups.cheaperAfterSeconds(diamondCost);
+      const coverage=item.speedupMinutes*o.quantity*60;
+      return first!=null && first<=coverage?[{o,first,diamondCost,coverage}]:[];
+    }).sort((a,b)=>a.first-b.first||a.diamondCost-b.diamondCost);
+  };
+  const lowestBreakEven=(item,shops)=>breakEvenOffers(item,shops)[0]?.first??null;
+  const wideBreakCell=(item,shops)=>{
+    if(!(item.speedupMinutes>0))return '<td class="wide-empty">—</td>';
+    const rows=breakEvenOffers(item,shops);
+    if(!rows.length)return '<td class="wide-empty" title="No diamond quote or subjective currency conversion provided">—</td>';
+    return '<td class="wide-break-cell">'+rows.map(({o,first,diamondCost,coverage})=>{
+      const modeled=o.currency!=="Diamonds";
+      const locked=o.shop==="VIP"&&o.minVip!=null&&o.minVip>state.vip;
+      const label=o.shop+(o.minVip!=null?" VIP "+o.minVip:"");
+      const tooltip=fmt(o.price)+" "+o.currency+" for "+speedups.formatDuration(coverage)+"; approx. "+fmt(diamondCost)+" diamond equivalents.";
+      return '<div class="wide-break-entry" title="'+esc(tooltip)+'"><strong class="mono">'+speedups.formatDuration(first)+'</strong>'+
+        '<span class="wide-rate-shop">'+esc(label)+(modeled?" · modeled":"")+(locked?" (locked)":"")+'</span></div>';
+    }).join("")+'</td>';
+  };
+  const normalizedBreakCsv=(item,shops)=>breakEvenOffers(item,shops).map(({o,first})=>
+    speedups.formatDuration(first)+" ("+o.shop+(o.minVip!=null?" VIP "+o.minVip:"")+(o.currency!=="Diamonds"?", modeled":"")+")").join(" | ");
+  const wideBreakHeading=()=>{
+    const active=state.wideSortKey==="breakEven";
+    return '<th scope="col" aria-sort="'+(active?(state.wideSortDirection==="asc"?"ascending":"descending"):"none")+'">'+
+      '<button type="button" class="wide-sort-button'+(active?" active":"")+'" data-wide-sort="breakEven" title="First remaining time when one shop offer is cheaper than instant diamond finish">'+
+      currencyIcon("Diamonds")+'<span>Break-even vs instant</span><span class="wide-sort-arrow" aria-hidden="true">'+
+      (active?(state.wideSortDirection==="asc"?"↑":"↓"):"↕")+'</span></button></th>';
+  };
   const escapeCsv = value => '"'+String(value??"").replace(/"/g,'""')+'"';
   function downloadWideCsv(){
     const head=["Item","Category",...wideColumns.map(c=>c.label+" price"),
       ...wideColumns.map(c=>c.label+" quantity"),"VIP required",
-      ...rateColumns.map(c=>"Cost/min "+c.currency)];
+      ...rateColumns.map(c=>"Cost/min "+c.currency),"Break-even vs instant (one offer)"];
     const lines=[head,...wideRows().map(({item,shops})=>{
       const byShop=wideColumns.map(c=>sortedShopOffers(shops.get(c.shop)));
       return [item.name,item.category,
         ...byShop.map(list=>list.map(o=>o.price??"").join(" | ")),
         ...byShop.map(list=>list.map(o=>o.quantity).join(" | ")),
         (byShop[2]||[]).map(o=>o.minVip??"").join(" | "),
-        ...rateColumns.map(c=>normalizedMinuteCsv(item,shops,c))];
+        ...rateColumns.map(c=>normalizedMinuteCsv(item,shops,c)),normalizedBreakCsv(item,shops)];
     })].map(row=>row.map(escapeCsv).join(","));
     const blob=new Blob(["\uFEFF"+lines.join("\r\n")],{type:"text/csv;charset=utf-8"});
     const url=URL.createObjectURL(blob),link=document.createElement("a");
@@ -340,11 +382,11 @@
       '<div class="item-name-wrap">'+itemIcon(item.id)+'<div><button class="linklike" data-select="'+esc(item.id)+'">'+
       esc(item.name)+'</button><div class="notice">'+esc(item.category)+'</div></div></div></th>'+
       wideColumns.map(c=>widePriceCell(shops.get(c.shop),c.shop)).join("")+
-      rateColumns.map(c=>wideMinuteCell(item,shops,c)).join("")+'</tr>').join("");
+      rateColumns.map(c=>wideMinuteCell(item,shops,c)).join("")+wideBreakCell(item,shops)+'</tr>').join("");
     return '<section class="panel"><div class="section-head"><div>'+
       '<p class="section-kicker">ITEM × SHOP / DENORMALIZED</p><h2>Wide price table</h2></div>'+
       '<button class="btn ghost" id="wide-download">Download CSV</button></div>'+
-      '<p class="note">Each item appears once, with prices from all five shops in separate columns. Amounts are the listed price for the offered quantity; an empty location means it was not observed, not that it is free. The three Cost/min columns divide each shop price by the minutes purchased. Click a Cost/min header to sort numerically (lowest first; click again to reverse). Diamond and VIP shop rates share a column and retain their shop labels. Missing rates always sort last; VIP-locked offers remain visible.</p>'+
+      '<p class="note">Each item appears once, with prices from all five shops in separate columns. Amounts are the listed price for the offered quantity; an empty location means it was not observed, not that it is free. The three Cost/min columns divide each shop price by the minutes purchased. Click a Cost/min header to sort numerically (lowest first; click again to reverse). Diamond and VIP shop rates share a column and retain their shop labels. Missing rates always sort last; VIP-locked offers remain visible. Break-even vs instant is the first remaining timer duration when buying one shop offer costs fewer diamonds than an instant finish, and that offer covers the timer. Non-diamond shop values use only your subjective currency assumptions from Compare value.</p>'+
       '<div class="filterbar wide-filters">'+
       '<div class="field"><label for="wide-search">Search items</label><input id="wide-search" placeholder="UR Omni Hero Shard…" value="'+esc(state.wideSearch)+'"></div>'+
       '<div class="field"><label for="wide-category">Category</label><select id="wide-category">'+
@@ -353,11 +395,66 @@
       selectOptions([{value:"all",label:"All items"},{value:"multi",label:"In 2+ shops"}],state.wideScope)+'</select></div></div>'+
       '<p class="notice">'+rows.length+' items shown · '+allOffers().length+' source offers · prices are not currency-converted</p>'+
       '<div class="table-wrap wide-scroll" id="wide-scroll"><table class="wide-table" id="wide-table">'+
-      '<thead><tr><th scope="col" aria-sort="'+(itemSortActive?(state.wideSortDirection==="asc"?"ascending":"descending"):"none")+'">'+itemSortButton+'</th>'+head+rateHead+'</tr></thead><tbody>'+
-      (body||'<tr><td colspan="9" class="empty">No matching items</td></tr>')+'</tbody></table></div>'+
-      '<p class="notice">— = item not listed in that shop · "Price unknown" = listing exists but its price could not be read · "for N units" indicates a bundle. "Reported price" flags figures not independently verified in a screenshot. CSV includes separate quantity, VIP requirement, and three currency-specific cost-per-minute columns. Queue speedups only—protective shields and stamina are not speedups.</p></section>';
+      '<thead><tr><th scope="col" aria-sort="'+(itemSortActive?(state.wideSortDirection==="asc"?"ascending":"descending"):"none")+'">'+itemSortButton+'</th>'+head+rateHead+wideBreakHeading()+'</tr></thead><tbody>'+
+      (body||'<tr><td colspan="10" class="empty">No matching items</td></tr>')+'</tbody></table></div>'+
+      '<p class="notice">— = item not listed in that shop · "Price unknown" = listing exists but its price could not be read · "for N units" indicates a bundle. "Reported price" flags figures not independently verified in a screenshot. CSV includes separate quantity, VIP requirement, and three currency-specific cost-per-minute columns. Queue speedups only—protective shields and stamina are not speedups. The break-even threshold includes ceiling/rounding, and unused purchased time may be wasted.</p></section>';
   }
 
+
+  const calcSeconds=()=>{
+    const n=value=>Math.min(100000,Math.max(0,Number(value)||0));
+    return Math.floor(3600*n(state.calcHours)+60*n(state.calcMinutes)+n(state.calcSeconds));
+  };
+  const appliesToQueue=(id,queue)=>{
+    if(["speed_5m","universal_1h","universal_8h","vip_3h"].includes(id))return true;
+    const prefix=({build:"build_",research:"research_",train:"train_",heal:"heal_"})[queue];
+    return !!prefix && id.startsWith(prefix);
+  };
+  const calcResults=()=>{
+    const seconds=calcSeconds(),instant=speedups.instantCost(seconds);
+    const options=seconds===0?[]:allOffers().filter(o=>
+      o.currency==="Diamonds" && priceUnit(o)!=null &&
+      itemById(o.item).speedupMinutes>0 && appliesToQueue(o.item,state.calcQueue)
+    ).map(o=>{
+      const item=itemById(o.item);
+      const offersNeeded=Math.ceil(seconds/(item.speedupMinutes*o.quantity*60));
+      return {o,item,offersNeeded,price:o.price*offersNeeded,
+        locked:!eligible(o),stockLimited:o.limit!=null&&offersNeeded>o.limit};
+    }).sort((a,b)=>a.price-b.price);
+    return '<div class="calculator-summary"><div><span class="stat-label">In-progress instant finish</span>'+
+      '<div class="calc-diamonds">'+currencyIcon("Diamonds")+'<strong class="mono">'+fmt(instant)+'</strong></div>'+
+      '<p class="note">'+speedups.formatDuration(seconds)+' remaining · ceil(180 × hours^0.9)</p></div>'+
+      '<div><span class="stat-label">Effective cost</span><div class="calc-rate mono">'+(seconds?fmt(instant/(seconds/60)):"—")+
+      '</div><p class="note">diamonds per minute</p></div></div>'+
+      '<h3>Shop alternatives for this timer</h3>'+
+      '<p class="note">Each alternative assumes purchasing enough of one kind of speedup to finish this timer. Unused time may be wasted. Diamond-priced shops only; availability and gates are based on observed listings.</p>'+
+      '<div class="table-wrap"><table class="calc-table"><thead><tr><th>Speedup</th><th>Items / offers</th><th>Diamond cost</th><th>Versus instant</th></tr></thead><tbody>'+
+      (options.length?options.map(({o,item,offersNeeded,price,locked,stockLimited})=>{
+        const delta=instant-price,notAvailable=locked||stockLimited;
+        return '<tr><td>'+esc(item.name)+'<div class="notice">'+esc(o.shop)+
+          (o.minVip!=null?' · VIP '+o.minVip:'')+(locked?' · locked':'')+
+          (stockLimited?' · exceeds observed stock':'')+'</div></td>'+
+          '<td class="mono">'+fmt(offersNeeded*o.quantity)+' / '+fmt(offersNeeded)+'</td>'+
+          '<td class="mono">'+fmt(price)+'</td><td class="'+
+          (notAvailable?'wide-unavailable':delta>0?'calc-good':delta<0?'calc-bad':'')+'">'+
+          (notAvailable?'Unavailable':delta>0?'Save '+fmt(delta):delta<0?'Costs '+fmt(-delta)+' more':'Same price')+
+          '</td></tr>';
+      }).join(""):'<tr><td colspan="4">No diamond-priced speedups for this queue.</td></tr>')+'</tbody></table></div>';
+  };
+  function calculator(){
+    return '<section class="panel"><p class="section-kicker">ACTIVE QUEUES / DIAMOND PRICING</p>'+
+      '<h2>Diamond speedup calculator</h2>'+
+      '<p class="note">Use the observed active-queue formula: <strong>ceil(180 × (remaining hours)^0.9)</strong>. Matches six in-game screenshots for crafting, research, construction and training. The pre-start Upgrade Now button appears to follow a different mechanic and is excluded.</p>'+
+      '<div class="controls-grid calc-fields">'+
+      '<div class="field"><label for="calc-hours">Hours</label><input id="calc-hours" type="number" min="0" step="1" inputmode="numeric" value="'+esc(state.calcHours)+'"></div>'+
+      '<div class="field"><label for="calc-minutes">Minutes</label><input id="calc-minutes" type="number" min="0" step="1" inputmode="numeric" value="'+esc(state.calcMinutes)+'"></div>'+
+      '<div class="field"><label for="calc-seconds">Seconds</label><input id="calc-seconds" type="number" min="0" step="1" inputmode="numeric" value="'+esc(state.calcSeconds)+'"></div>'+
+      '<div class="field"><label for="calc-queue">Queue type</label><select id="calc-queue">'+selectOptions([
+        {value:"all",label:"Crafting / other (universal only)"},{value:"build",label:"Construction"},
+        {value:"research",label:"Research"},{value:"train",label:"Training"},{value:"heal",label:"Healing"}],state.calcQueue)+'</select></div></div>'+
+      '<div id="calc-live">'+calcResults()+'</div>'+
+      '<p class="notice">Does not subtract speedups already owned. A VIP offer with no known level requirement is not proof it is unlocked; check in game before buying.</p></section>';
+  }
   function catalog(){
     const list=allOffers().filter(o=>{
       const item=itemById(o.item);
@@ -422,7 +519,7 @@
       b.classList.toggle("active",b.dataset.tab===state.tab);
       b.setAttribute("aria-current",b.dataset.tab===state.tab?"page":"false");
     });
-    q("workspace").innerHTML = state.tab==="compare" ? compare() : state.tab==="rankings" ? rankings() : state.tab==="wide" ? wideTable() : state.tab==="catalog" ? catalog() : state.tab==="vip" ? vip() : dataPage();
+    q("workspace").innerHTML = state.tab==="compare" ? compare() : state.tab==="rankings" ? rankings() : state.tab==="wide" ? wideTable() : state.tab==="calculator" ? calculator() : state.tab==="catalog" ? catalog() : state.tab==="vip" ? vip() : dataPage();
   }
   document.addEventListener("click", e=>{
     const tab=e.target.closest("[data-tab]");
@@ -432,7 +529,7 @@
     const sort=e.target.closest("[data-wide-sort]");
     if(sort){
       const key=sort.dataset.wideSort;
-      if(key==="item" || rateColumns.some(c=>c.key===key)){
+      if(key==="item" || key==="breakEven" || rateColumns.some(c=>c.key===key)){
         // Sorting re-creates the table; retain its horizontal and vertical position.
         const previous=q("wide-scroll");
         const top=previous?.scrollTop ?? 0;
@@ -487,6 +584,7 @@
     else if(t.id==="include-reported")state.includeReported=t.value==="yes";
     else if(t.id==="rank-shop")state.rankShop=t.value;
     else if(t.id==="shop-filter")state.shop=t.value;
+    else if(t.id==="calc-queue")state.calcQueue=t.value;
     else if(t.id==="wide-category")state.wideCategory=t.value;
     else if(t.id==="wide-scope")state.wideScope=t.value;
     else if(t.id==="category-filter")state.category=t.value;
@@ -512,6 +610,12 @@
     save();render();
   });
   document.addEventListener("input",e=>{
+    if(["calc-hours","calc-minutes","calc-seconds"].includes(e.target.id)){
+      const key=({"calc-hours":"calcHours","calc-minutes":"calcMinutes","calc-seconds":"calcSeconds"})[e.target.id];
+      state[key]=e.target.value;save();
+      const live=q("calc-live");if(live)live.innerHTML=calcResults();
+      return;
+    }
     if(e.target.id==="wide-search"){
       state.wideSearch=e.target.value;save();
       const pos=e.target.selectionStart;render();

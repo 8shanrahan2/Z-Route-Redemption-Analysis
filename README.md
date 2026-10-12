@@ -4,7 +4,7 @@ A dependency-free static web app for comparing the **Diamond**, **Alliance**, **
 
 ## Features
 
-- Compare 77 screenshot-derived offers from five shops, with purchase limits, restock schedules, searchable catalog and evidence markers.
+- Compare 78 screenshot- and player-report-derived offers from five shops, with purchase limits, restock schedules, searchable catalog and evidence markers.
 - Calculate **implied diamond purchasing power per 1,000 shop currency** from matching diamond-priced items; the **Value rankings** tab orders offers within each currency by that benchmark.
 - Enter your own *subjective* diamond value per 1,000 Alliance / Trial / Honor currency units to see normalized costs and the least-expensive accessible shop. These are opportunity-cost assumptions, **not actual exchange rates**.
 - Choose between the regular Diamond shop baseline or the cheapest eligible Diamond/VIP offer as the item reference price.
@@ -17,6 +17,15 @@ A dependency-free static web app for comparing the **Diamond**, **Alliance**, **
 No build tools or dependencies. Open `index.html` locally, or serve the root folder using any static HTTP server.
 
 **GitHub Pages (not enabled through this app):** Repository → Settings → Pages → **Deploy from a branch** → `main` → `/ (root)` → Save. Once enabled, the app is at `https://8shanrahan2.github.io/Z-Route-Redemption-Analysis/`.
+
+## Tooltip-confirmed names and quantity corrections (12 Oct 2026)
+
+Additional in-game tooltip screenshots confirmed the official names **Recruit Card**, **UR Omni Hero Shard**, **Mythic Trial Chest**, **Lv.3 Fighter Component Chest**, **Combat Chip**, **UR Gear Blueprint**, **UR Decoration Chest**, **Conductive Crystal**, and **8-hr Speedup**.
+
+- Trial Shop: **Combat Chip** displays a pack of **10,000 chips** for **1,000 Trial medals** (not one chip).
+- VIP Shop: **Stamina** costs **36 diamonds**, per the user's report. Its actual pack size and purchase limit are unknown, so the dataset treats the listing as **one pack**, not one stamina point.
+- VIP 8: a tooltip says **3-hr Speedup** but the small icon appears to say **2h**. The name is provisionally recorded as displayed by the tooltip, and the discrepancy is flagged for follow-up.
+- Other unclear item icons remain provisional and are not silently merged with unrelated items.
 
 ## Smoke tests
 

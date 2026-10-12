@@ -118,18 +118,18 @@ const c1=wideCells("build_1h"), c8=wideCells("build_8h");
 assert(c1[6].includes('>15</span>') && c1[6].includes('aria-label="Alliance coins"'),
   "1-hour construction costs 15 Alliance coins/min");
 assert(c8[6].includes('>12.5</span>'),"8-hour construction costs 12.5 Alliance coins/min");
-assert(c1[5].includes('wide-empty') && c1[7].includes('wide-empty'),"Absent currency rates should be blank");
+assert(c1[5].trim()==="—" && c1[7].trim()==="—","Absent currency rates should be blank");
 const fiveMinute=wideCells("speed_5m");
 assert(fiveMinute[5].includes('>1.6</span>') && fiveMinute[5].includes('aria-label="Diamonds"'),"5-minute speedup diamond rate");
 assert(fiveMinute[6].includes('>15</span>') && fiveMinute[6].includes('aria-label="Alliance coins"'),"5-minute speedup Alliance rate");
-assert.equal(fiveMinute[7].includes('wide-empty'),true);
+assert.equal(fiveMinute[7].trim()==="—",true);
 const oneHour=wideCells("universal_1h");
 assert(oneHour[5].includes('>1.2</span>') && oneHour[7].includes('>8.333</span>'),"Universal 1h rate comparisons");
 const threeHour=wideCells("vip_3h");
 assert(threeHour[5].includes('>1.067</span>') && threeHour[5].includes('VIP 8 (locked)'),
   "VIP 8 3-hour speedup rate and gate");
 for(const notSpeedup of ["shield_8h","dark_cans_10"]){
-  assert(wideCells(notSpeedup).slice(5).every(cell=>cell.includes('wide-empty')),"Non-speedup rate cells must be blank");
+  assert(wideCells(notSpeedup).slice(5).every(cell=>cell.trim()==="—"),"Non-speedup rate cells must be blank");
 }
 const fighterWideRow=getWideRow("fighter_part");
 assert(fighterWideRow.includes("reported price"));
@@ -142,7 +142,7 @@ const clickSort=key => handlers.click({target:{closest(selector){
 clickSort("alliance");
 assert(rendered().includes('aria-sort="ascending"'));
 assert.equal(visibleRows()[0],"build_8h"); // 12.5 coins/min, first of tied 8h speeds
-assert.equal(visibleRows().slice(-1)[0],"xp_chest_purple"); // non-speedups last
+assert(wideCells(visibleRows().at(-1)).slice(5).every(cell=>cell.trim()==="—"),"No-rate items must sort last");
 clickSort("alliance");
 assert(rendered().includes('aria-sort="descending"'));
 assert.equal(visibleRows()[0],"build_1h"); // 15 coins/min, first of tied 1h speeds

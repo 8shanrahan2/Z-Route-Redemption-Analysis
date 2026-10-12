@@ -4,7 +4,7 @@ A dependency-free static web app for comparing the **Diamond**, **Alliance**, **
 
 ## Features
 
-- Compare 78 screenshot- and player-report-derived offers from five shops, with purchase limits, restock schedules, searchable catalog and evidence markers.
+- Compare 77 screenshot- and player-report-derived offers from five shops, with purchase limits, restock schedules, searchable catalog and evidence markers.
 - Calculate **implied diamond purchasing power per 1,000 shop currency** from matching diamond-priced items; the **Value rankings** tab orders offers within each currency by that benchmark.
 - Enter your own *subjective* diamond value per 1,000 Alliance / Trial / Honor currency units to see normalized costs and the least-expensive accessible shop. These are opportunity-cost assumptions, **not actual exchange rates**.
 - Choose between the regular Diamond shop baseline or the cheapest eligible Diamond/VIP offer as the item reference price.
@@ -20,12 +20,13 @@ No build tools or dependencies. Open `index.html` locally, or serve the root fol
 
 ## Tooltip-confirmed names and quantity corrections (12 Oct 2026)
 
-Additional in-game tooltip screenshots confirmed the official names **Recruit Card**, **UR Omni Hero Shard**, **Mythic Trial Chest**, **Lv.3 Fighter Component Chest**, **Combat Chip**, **UR Gear Blueprint**, **UR Decoration Chest**, **Conductive Crystal**, and **8-hr Speedup**.
+Additional in-game tooltip screenshots confirmed the official names **Recruit Card**, **Survivor Recruit Ticket**, **UR Omni Hero Shard**, **Mythic Trial Chest**, **Lv.3 Fighter Component Chest**, **Combat Chip**, **UR Gear Blueprint**, **UR Decoration Chest**, **Toxina Shard**, **Conductive Crystal**, **Composite Material**, **Heat-Resistant Gold**, **Refined Stone**, **Convoy Contract**, **Resource Chest**, **SSR Resource Selection Chest**, **UR Resource Selection Chest**, **3-hr Speedup**, and other tooltips.
 
 - Trial Shop: **Combat Chip** displays a pack of **10,000 chips** for **1,000 Trial medals** (not one chip).
-- VIP Shop: **Stamina** costs **36 diamonds**, per the user's report. Its actual pack size and purchase limit are unknown, so the dataset treats the listing as **one pack**, not one stamina point.
-- VIP 8: a tooltip says **3-hr Speedup** but the small icon appears to say **2h**. The name is provisionally recorded as displayed by the tooltip, and the discrepancy is flagged for follow-up.
-- Other unclear item icons remain provisional and are not silently merged with unrelated items.
+- VIP Shop: one **10 Stamina** item costs **36 diamonds**, per the user's report. The tooltip confirms the 10-stamina pack size; the purchase limit and price remain unverified by screenshot. The former duplicate stamina entry was merged.
+- VIP 8: the user confirmed the **3-hr Speedup** costs **192 diamonds**, superseding the apparent '2h' text seen on a partly obscured icon.
+- The player verified the crafting sequence: **4 Heat-Resistant Gold → 1 Composite Material**, **4 Composite Materials → 1 Conductive Crystal**. Same items from different shops are merged for meaningful price ratios.
+- Four remaining labels are tentative: **Lv.1 Fighter Component Chest** and the three VIP resource crate names (Food, Oil, Metal). Other items still have unverified shop prices or purchase limits, as marked.
 
 ## Smoke tests
 
@@ -33,9 +34,9 @@ Run `node tests/smoke.cjs` (Node 18+, no dependencies). Checks item integrity, c
 
 ## Sources and caveats
 
-- 10 user-supplied game screenshots from October 12, 2026. Numbering in `data/shop-data.js` corresponds to the upload order (1=Diamond, 2–4=Alliance, 5–7=VIP, 8–9=Trial, 10=Honor).
+- Initial 10 shop-price screenshots and subsequent labeled tooltip screenshots provided by the user on October 12, 2026. Original shop screenshot codes in `data/shop-data.js`: D1=Diamond, A2–A4=Alliance, V5–V7=VIP, T8–T9=Trial, H10=Honor.
 - A sold-out Alliance Fighter Part has **no visible price**. The 1,000 Alliance Coin price is a user-provided estimate / prior guide report, not verified in the screenshot. It is flagged `reported`.
-- The VIP 8 (2-hour speedup), VIP 9 (gray item), VIP 10 (8-hour speedup), VIP 11 (gold shard) gates are visible; others are unknown. The separately published [Japanese VIP guide](https://gamesakidori.com/z-route/vip-guide/) reports gated offerings between levels 4–11 but does not publish a complete unlock-to-item list.
+- The VIP 8 (3-hr Speedup), VIP 9 (Conductive Crystal), VIP 10 (8-hr Speedup), VIP 11 (UR Omni Hero Shard) gates are established; others are unknown. The separately published [Japanese VIP guide](https://gamesakidori.com/z-route/vip-guide/) reports gated offerings between levels 4–11 but does not publish a complete unlock-to-item list.
 - The [ZR Reference project](https://github.com/JeffxLabs/zrouteredemption) publishes progression data, but no canonical shop-price dataset as of the source review.
 - Icon-only product identifications are intentionally tentative and should be corrected by in-game item-detail screenshots. **Similar-looking gold tickets and metal gears are different items**; do not merge them. Universal speedups are also tracked separately from construction/research/training speedups. Two relocation icons with visually matching designs are linked across Diamond and Alliance/VIP shops.
 - The **VIP shop** is diamond-priced but weekly discounted; it isn't a separate currency. Source figures are not guaranteed to remain fixed after game updates.

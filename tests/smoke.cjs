@@ -37,7 +37,7 @@ assert.deepEqual(Array.from(relocate("blue_reloc_flag")).sort(), ["Alliance", "D
 const universal = offers.filter(o => o.item === "universal_1h").map(o => o.shop).sort();
 assert.deepEqual(Array.from(universal), ["Trial", "VIP"]);
 assert(offers.some(o => o.item === "fighter_part" && o.shop === "Alliance" && o.evidence === "reported"));
-const gates = offers.filter(o => o.shop === "VIP" && o.minVip !== null).map(o => o.minVip).sort();
+const gates = offers.filter(o => o.shop === "VIP" && o.minVip !== null).map(o => o.minVip).sort((a,b) => a-b);
 assert.deepEqual(Array.from(gates), [8, 9, 10, 11]);
 vm.runInNewContext(text("assets/app.js"), sandbox, {filename: "app.js"});
 const rendered = () => elements.workspace.innerHTML;

@@ -8,7 +8,8 @@ window.ZR_SPEEDUPS=Object.freeze({
   cheaperAfterSeconds(cost){
     if(!Number.isFinite(cost)||cost<0)return null;
     if(cost===0)return 1;
-    let sec=Math.max(1,Math.floor(3600*Math.pow(cost/180,1/0.9))+1);
+    // For fractional modeled diamond costs, ceil(x) > cost when x > floor(cost).
+    let sec=Math.max(1,Math.floor(3600*Math.pow(Math.floor(cost)/180,1/0.9))+1);
     while(this.instantCost(sec)<=cost)sec++;
     while(sec>1&&this.instantCost(sec-1)>cost)sec--;
     return sec;

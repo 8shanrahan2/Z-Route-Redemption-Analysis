@@ -85,7 +85,7 @@ const math = sandbox.window.ZR_SPEEDUPS;
 for(const [sec,price] of [[5527,265],[6975,327],[21361,894],[73466,2717],[109395,3888],[35586,1415]]){
   assert.equal(math.instantCost(sec),price,"Instant quote mismatch for "+sec+" seconds");
 }
-for(const [cost,expected] of [[8,114],[72,1301],[192,3868],[480,10706]]){
+for(const [cost,expected] of [[8,114],[72,1301],[192,3868],[480,10706],[72.5,1301],[0.4,1]]){
   assert.equal(math.cheaperAfterSeconds(cost),expected);
   assert(math.instantCost(expected)>cost && math.instantCost(expected-1)<=cost);
 }
@@ -207,6 +207,9 @@ assert.equal(visibleRows()[0],"universal_8h"); // 1 diamond/min
 assert(rendered().includes('data-wide-sort="diamonds"'));
 clickSort("trial");
 assert.equal(visibleRows()[0],"universal_1h"); // 8.333 trial medals/min
+handlers.change({target:{id:"alliance-assumption",value:"80",dataset:{rate:"Alliance"}}});
+assert(wideCells("build_1h")[8].includes("21m 41s") && wideCells("build_1h")[8].includes("modeled"),
+  "User-supplied Alliance conversion should generate a labeled break-even time");
 tab("catalog");
 assert(!wideClasses.has("wide-layout"),"Other tabs should use the narrower reading layout");
 assert.match(rendered(), /Shop price catalog/);

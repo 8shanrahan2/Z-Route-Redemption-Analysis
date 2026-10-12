@@ -89,6 +89,12 @@ for(const [cost,expected] of [[8,114],[72,1301],[192,3868],[480,10706],[72.5,130
   assert.equal(math.cheaperAfterSeconds(cost),expected);
   assert(math.instantCost(expected)>cost && math.instantCost(expected-1)<=cost);
 }
+assert(Math.abs(math.averageRatePerMinute(72)-1.95608627)<0.000001);
+for(const [rate,display] of [[1.6,"22d 9h 3m"],[1.2,"397d 8h 45m"],[1,"2,460d 9h 0m"]]){
+  assert.equal(math.formatParity(math.rateParitySeconds(rate)),display,
+    "Incorrect rate-parity duration for "+rate+" diamonds/min");
+}
+assert.equal(math.rateParitySeconds(0),null);
 vm.runInNewContext(text("assets/app.js"), sandbox, {filename: "app.js"});
 const rendered = () => elements.workspace.innerHTML;
 assert.match(rendered(), /Fighter Parts/);
@@ -131,7 +137,7 @@ for (const label of ["Diamonds / min","Alliance coins / min","Trial medals / min
   assert(rendered().includes(label),"Missing currency-specific rate header: "+label);
 }
 assert.equal((rendered().match(/data-wide-sort=/g)||[]).length,5);
-assert.match(rendered(), /Break-even vs instant/);
+assert.match(rendered(), /Instant-rate break-even/);
 assert.equal((rendered().match(/data-wide-item=/g)||[]).length,52);
 for (const label of ["Alliance coins","Diamond shop","VIP shop","Trial medals","Honor medals"]) {
   assert(rendered().includes(label), "Missing original shop column "+label);
@@ -152,15 +158,16 @@ const fiveMinute=wideCells("speed_5m");
 assert(fiveMinute[5].includes('>1.6</span>') && fiveMinute[5].includes('aria-label="Diamonds"'),"5-minute speedup diamond rate");
 assert(fiveMinute[6].includes('>15</span>') && fiveMinute[6].includes('aria-label="Alliance coins"'),"5-minute speedup Alliance rate");
 assert.equal(fiveMinute[7].trim()==="—",true);
-assert(fiveMinute[8].includes("1m 54s"),"VIP 5-minute speedup should be cheaper after 1m54s");
+assert(fiveMinute[8].includes("22d 9h 3m") && fiveMinute[8].includes("1.6 ◇/min"),
+  "VIP 5-minute rate parity must occur at ~22 days, not after 2 minutes");
 const oneHour=wideCells("universal_1h");
 assert(oneHour[5].includes('>1.2</span>') && oneHour[7].includes('>8.333</span>'),"Universal 1h rate comparisons");
-assert(oneHour[8].includes("21m 41s"),"VIP 1h break-even");
+assert(oneHour[8].includes("397d 8h 45m"),"VIP 1h rate parity");
 const threeHour=wideCells("vip_3h");
 assert(threeHour[5].includes('>1.067</span>') && threeHour[5].includes('VIP 8 (locked)'),
   "VIP 8 3-hour speedup rate and gate");
-assert(wideCells("vip_3h")[8].includes("1h 4m 28s"),"VIP 3h break-even");
-assert(wideCells("universal_8h")[8].includes("2h 58m 26s"),"VIP 8h break-even");
+assert(wideCells("vip_3h")[8].includes("1,290d"),"VIP 3h rate parity");
+assert(wideCells("universal_8h")[8].includes("2,460d 9h"),"VIP 8h rate parity");
 for(const notSpeedup of ["shield_8h","dark_cans_10"]){
   assert(wideCells(notSpeedup).slice(5).every(cell=>cell.trim()==="—"),"Non-speedup rate cells must be blank");
 }
@@ -208,7 +215,7 @@ assert(rendered().includes('data-wide-sort="diamonds"'));
 clickSort("trial");
 assert.equal(visibleRows()[0],"universal_1h"); // 8.333 trial medals/min
 handlers.change({target:{id:"alliance-assumption",value:"80",dataset:{rate:"Alliance"}}});
-assert(wideCells("build_1h")[8].includes("21m 41s") && wideCells("build_1h")[8].includes("modeled"),
+assert(wideCells("build_1h")[8].includes("397d 8h 45m") && wideCells("build_1h")[8].includes("modeled"),
   "User-supplied Alliance conversion should generate a labeled break-even time");
 tab("catalog");
 assert(!wideClasses.has("wide-layout"),"Other tabs should use the narrower reading layout");

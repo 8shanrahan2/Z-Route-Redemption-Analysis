@@ -311,49 +311,53 @@
       '</button></th>';
   };
 
-  // Compare buying one offer (one item or an entire pack) to immediately
-  // finishing a timer that fits within the purchased time. Currency conversions
-  // are subjective values set by the player, not in-game exchange rates.
+  // Compare average diamond cost/minute of INSTANT completion with each shop
+  // item's (diamond-equivalent) per-minute rate. This is rate parity, not a
+  // single-item purchase to fully finish a queue. Other currency conversions
+  // are subjective rates entered by the player, never in-game exchange rates.
   const breakEvenOffers=(item,shops)=>{
     if(!(item.speedupMinutes>0))return [];
     return [...(shops?.values()||[])].flatMap(x=>x).flatMap(o=>{
       if(priceUnit(o)==null||!(o.quantity>0))return [];
-      const perUnit=modeledCost(o);
-      if(perUnit==null)return [];
-      const diamondCost=perUnit*o.quantity;
-      const first=speedups.cheaperAfterSeconds(diamondCost);
-      const coverage=item.speedupMinutes*o.quantity*60;
-      return first!=null && first<=coverage?[{o,first,diamondCost,coverage}]:[];
-    }).sort((a,b)=>a.first-b.first||a.diamondCost-b.diamondCost);
+      const diamondCostPerUnit=modeledCost(o);
+      if(diamondCostPerUnit==null)return [];
+      const perMinute=diamondCostPerUnit/item.speedupMinutes;
+      const parity=speedups.rateParitySeconds(perMinute);
+      return parity!=null?[{o,parity,perMinute}]:[];
+    }).sort((a,b)=>a.parity-b.parity||a.perMinute-b.perMinute);
   };
-  const lowestBreakEven=(item,shops)=>breakEvenOffers(item,shops)[0]?.first??null;
+  const lowestBreakEven=(item,shops)=>breakEvenOffers(item,shops)[0]?.parity??null;
   const wideBreakCell=(item,shops)=>{
     if(!(item.speedupMinutes>0))return '<td class="wide-empty">—</td>';
     const rows=breakEvenOffers(item,shops);
-    if(!rows.length)return '<td class="wide-empty" title="No diamond quote or subjective currency conversion provided">—</td>';
-    return '<td class="wide-break-cell">'+rows.map(({o,first,diamondCost,coverage})=>{
+    if(!rows.length)return '<td class="wide-empty" title="No diamond price or subjective currency conversion provided">—</td>';
+    return '<td class="wide-break-cell">'+rows.map(({o,parity,perMinute})=>{
       const modeled=o.currency!=="Diamonds";
       const locked=o.shop==="VIP"&&o.minVip!=null&&o.minVip>state.vip;
       const label=o.shop+(o.minVip!=null?" "+o.minVip:"");
-      const tooltip=fmt(o.price)+" "+o.currency+" for "+speedups.formatDuration(coverage)+"; approx. "+fmt(diamondCost)+" diamond equivalents.";
-      return '<div class="wide-break-entry" title="'+esc(tooltip)+'"><strong class="mono">'+speedups.formatDuration(first)+'</strong>'+
-        '<span class="wide-rate-shop">'+esc(label)+(modeled?" · modeled":"")+(locked?" (locked)":"")+'</span></div>';
+      const tooltip="At ~"+speedups.formatParity(parity)+" the average instant rate reaches "+fmtMinuteRate(perMinute)+
+        " diamond"+(modeled?"-equivalent":"")+"s per minute ("+fmt(o.price)+" "+o.currency+
+        " for "+fmt(o.quantity)+" speedup items). Shorter: shop rate wins. Longer: instant rate wins.";
+      return '<div class="wide-break-entry" title="'+esc(tooltip)+'"><strong class="mono">≈'+speedups.formatParity(parity)+'</strong>'+
+        '<span class="wide-rate-shop">'+esc(label)+" · "+fmtMinuteRate(perMinute)+" ◇/min"+
+        (modeled?" (modeled)":"")+(locked?" (locked)":"")+'</span></div>';
     }).join("")+'</td>';
   };
-  const normalizedBreakCsv=(item,shops)=>breakEvenOffers(item,shops).map(({o,first})=>
-    speedups.formatDuration(first)+" ("+o.shop+(o.minVip!=null?" VIP "+o.minVip:"")+(o.currency!=="Diamonds"?", modeled":"")+")").join(" | ");
+  const normalizedBreakCsv=(item,shops)=>breakEvenOffers(item,shops).map(({o,parity,perMinute})=>
+    speedups.formatParity(parity)+" ("+o.shop+(o.minVip!=null?" VIP "+o.minVip:"")+
+    ": "+fmtMinuteRate(perMinute)+" diamonds/min"+(o.currency!=="Diamonds"?", modeled":"")+")").join(" | ");
   const wideBreakHeading=()=>{
     const active=state.wideSortKey==="breakEven";
     return '<th scope="col" aria-sort="'+(active?(state.wideSortDirection==="asc"?"ascending":"descending"):"none")+'">'+
-      '<button type="button" class="wide-sort-button'+(active?" active":"")+'" data-wide-sort="breakEven" title="First remaining time when one shop offer is cheaper than instant diamond finish">'+
-      currencyIcon("Diamonds")+'<span>Break-even vs instant</span><span class="wide-sort-arrow" aria-hidden="true">'+
+      '<button type="button" class="wide-sort-button'+(active?" active":"")+'" data-wide-sort="breakEven" title="Estimated timer duration when average instant diamond cost per minute falls to this shop speedup rate">'+
+      currencyIcon("Diamonds")+'<span>Instant-rate break-even</span><span class="wide-sort-arrow" aria-hidden="true">'+
       (active?(state.wideSortDirection==="asc"?"↑":"↓"):"↕")+'</span></button></th>';
   };
   const escapeCsv = value => '"'+String(value??"").replace(/"/g,'""')+'"';
   function downloadWideCsv(){
     const head=["Item","Category",...wideColumns.map(c=>c.label+" price"),
       ...wideColumns.map(c=>c.label+" quantity"),"VIP required",
-      ...rateColumns.map(c=>"Cost/min "+c.currency),"Break-even vs instant (one offer)"];
+      ...rateColumns.map(c=>"Cost/min "+c.currency),"Instant-rate break-even (average diamonds/min)"];
     const lines=[head,...wideRows().map(({item,shops})=>{
       const byShop=wideColumns.map(c=>sortedShopOffers(shops.get(c.shop)));
       return [item.name,item.category,
@@ -386,7 +390,7 @@
     return '<section class="panel"><div class="section-head"><div>'+
       '<p class="section-kicker">ITEM × SHOP / DENORMALIZED</p><h2>Wide price table</h2></div>'+
       '<button class="btn ghost" id="wide-download">Download CSV</button></div>'+
-      '<p class="note">Each item appears once, with prices from all five shops in separate columns. Amounts are the listed price for the offered quantity; an empty location means it was not observed, not that it is free. The three Cost/min columns divide each shop price by the minutes purchased. Click a Cost/min header to sort numerically (lowest first; click again to reverse). Diamond and VIP shop rates share a column and retain their shop labels. Missing rates always sort last; VIP-locked offers remain visible. Break-even vs instant is the first remaining timer duration when buying one shop offer costs fewer diamonds than an instant finish, and that offer covers the timer. Non-diamond shop values use only your subjective currency assumptions from Compare value.</p>'+
+      '<p class="note">Each item appears once, with prices from all five shops in separate columns. Amounts are the listed price for the offered quantity; an empty location means it was not observed, not that it is free. The three Cost/min columns divide each shop price by the minutes purchased. Click a Cost/min header to sort numerically (lowest first; click again to reverse). Diamond and VIP shop rates share a column and retain their shop labels. Missing rates always sort last; VIP-locked offers remain visible. Instant-rate break-even is the estimated timer length where the instant diamond price per minute declines to the shop speedup rate. Below it, the shop has the cheaper cost/min; above it, instant completion is cheaper per minute. These are rate comparisons, not the diamonds required to finish one short queue. Non-diamond shops require your subjective diamond-equivalent values from Compare value.</p>'+
       '<div class="filterbar wide-filters">'+
       '<div class="field"><label for="wide-search">Search items</label><input id="wide-search" placeholder="UR Omni Hero Shard…" value="'+esc(state.wideSearch)+'"></div>'+
       '<div class="field"><label for="wide-category">Category</label><select id="wide-category">'+
@@ -397,7 +401,7 @@
       '<div class="table-wrap wide-scroll" id="wide-scroll"><table class="wide-table" id="wide-table">'+
       '<thead><tr><th scope="col" aria-sort="'+(itemSortActive?(state.wideSortDirection==="asc"?"ascending":"descending"):"none")+'">'+itemSortButton+'</th>'+head+rateHead+wideBreakHeading()+'</tr></thead><tbody>'+
       (body||'<tr><td colspan="10" class="empty">No matching items</td></tr>')+'</tbody></table></div>'+
-      '<p class="notice">— = item not listed in that shop · "Price unknown" = listing exists but its price could not be read · "for N units" indicates a bundle. "Reported price" flags figures not independently verified in a screenshot. CSV includes separate quantity, VIP requirement, and three currency-specific cost-per-minute columns. Queue speedups only—protective shields and stamina are not speedups. The break-even threshold includes ceiling/rounding, and unused purchased time may be wasted.</p></section>';
+      '<p class="notice">— = item not listed in that shop · "Price unknown" = listing exists but its price could not be read · "for N units" indicates a bundle. "Reported price" flags figures not independently verified in a screenshot. CSV includes separate quantity, VIP requirement, and three currency-specific cost-per-minute columns. Queue speedups only—protective shields and stamina are not speedups. Rate parity is extrapolated from the observed power-law formula (verified only through about 30 hours). Multi-day or multi-year estimates are highly uncertain. Actual diamond rounding may shift the estimated crossover by minutes.</p></section>';
   }
 
 

@@ -80,6 +80,15 @@ assert.equal(items.filter(i => i.speedupMinutes != null).length,12);
 assert.equal(official.shield_24h.speedupMinutes,null);
 assert.equal(official.dark_cans_10.speedupMinutes,null);
 
+vm.runInNewContext(text("assets/speedup-math.js"), sandbox, {filename: "speedup-math.js"});
+const math = sandbox.window.ZR_SPEEDUPS;
+for(const [sec,price] of [[5527,265],[6975,327],[21361,894],[73466,2717],[109395,3888],[35586,1415]]){
+  assert.equal(math.instantCost(sec),price,"Instant quote mismatch for "+sec+" seconds");
+}
+for(const [cost,expected] of [[8,114],[72,1301],[192,3868],[480,10706]]){
+  assert.equal(math.cheaperAfterSeconds(cost),expected);
+  assert(math.instantCost(expected)>cost && math.instantCost(expected-1)<=cost);
+}
 vm.runInNewContext(text("assets/app.js"), sandbox, {filename: "app.js"});
 const rendered = () => elements.workspace.innerHTML;
 assert.match(rendered(), /Fighter Parts/);
@@ -89,6 +98,16 @@ assert.match(rendered(), /500/); // 400 VIP diamonds / 800 honor medals * 1000
 const tab = name => handlers.click({
   target: {closest(selector) { return selector === "[data-tab]" ? {dataset: {tab:name}} : null; }}
 });
+tab("calculator");
+assert.match(rendered(), /Diamond speedup calculator/);
+assert.match(rendered(), /180/);
+assert.match(rendered(), /Shop alternatives/);
+handlers.input({target:{id:"calc-hours",value:"9"}});
+handlers.input({target:{id:"calc-minutes",value:"53"}});
+handlers.input({target:{id:"calc-seconds",value:"6"}});
+assert.match(rendered(), /1,415/);
+handlers.change({target:{id:"calc-queue",value:"train",dataset:{}}});
+assert.match(rendered(), /8-hour training speedup/);
 tab("rankings");
 assert.match(rendered(), /Best value by currency/);
 assert.match(rendered(), /<th>Currency<\/th>/);
@@ -110,7 +129,8 @@ assert.match(rendered(), /id="wide-download"/);
 for (const label of ["Diamonds / min","Alliance coins / min","Trial medals / min"]) {
   assert(rendered().includes(label),"Missing currency-specific rate header: "+label);
 }
-assert.equal((rendered().match(/data-wide-sort=/g)||[]).length,4);
+assert.equal((rendered().match(/data-wide-sort=/g)||[]).length,5);
+assert.match(rendered(), /Break-even vs instant/);
 assert.equal((rendered().match(/data-wide-item=/g)||[]).length,52);
 for (const label of ["Alliance coins","Diamond shop","VIP shop","Trial medals","Honor medals"]) {
   assert(rendered().includes(label), "Missing original shop column "+label);
@@ -119,7 +139,7 @@ const getWideRow = item => rendered().split('data-wide-item="'+item+'"')[1]?.spl
 const wideCells = item => [...getWideRow(item).matchAll(/<td[^>]*>([\s\S]*?)<\/td>/g)].map(m=>m[1]);
 const heroWideRow=getWideRow("hero_gold");
 assert(heroWideRow,"Missing UR Omni Hero Shard");
-assert.equal(wideCells("hero_gold").length,8); // 5 shop columns + 3 rate columns
+assert.equal(wideCells("hero_gold").length,9); // 5 shop columns + 3 rate columns + break-even
 assert(heroWideRow.includes("3,000") && heroWideRow.includes("VIP 11 · locked"));
 assert(heroWideRow.includes("wide-empty") && heroWideRow.includes('wide-amount mono">200'));
 const c1=wideCells("build_1h"), c8=wideCells("build_8h");
@@ -131,11 +151,15 @@ const fiveMinute=wideCells("speed_5m");
 assert(fiveMinute[5].includes('>1.6</span>') && fiveMinute[5].includes('aria-label="Diamonds"'),"5-minute speedup diamond rate");
 assert(fiveMinute[6].includes('>15</span>') && fiveMinute[6].includes('aria-label="Alliance coins"'),"5-minute speedup Alliance rate");
 assert.equal(fiveMinute[7].trim()==="—",true);
+assert(fiveMinute[8].includes("1m 54s"),"VIP 5-minute speedup should be cheaper after 1m54s");
 const oneHour=wideCells("universal_1h");
 assert(oneHour[5].includes('>1.2</span>') && oneHour[7].includes('>8.333</span>'),"Universal 1h rate comparisons");
+assert(oneHour[8].includes("21m 41s"),"VIP 1h break-even");
 const threeHour=wideCells("vip_3h");
 assert(threeHour[5].includes('>1.067</span>') && threeHour[5].includes('VIP 8 (locked)'),
   "VIP 8 3-hour speedup rate and gate");
+assert(wideCells("vip_3h")[8].includes("1h 4m 28s"),"VIP 3h break-even");
+assert(wideCells("universal_8h")[8].includes("2h 58m 26s"),"VIP 8h break-even");
 for(const notSpeedup of ["shield_8h","dark_cans_10"]){
   assert(wideCells(notSpeedup).slice(5).every(cell=>cell.trim()==="—"),"Non-speedup rate cells must be blank");
 }
@@ -162,6 +186,10 @@ const visibleRows = () => [...rendered().matchAll(/data-wide-item="([^"]+)"/g)].
 const clickSort=key => handlers.click({target:{closest(selector){
   return selector==="[data-wide-sort]" ? {dataset:{wideSort:key}}:null;
 }}});
+clickSort("breakEven");
+assert.equal(elements["wide-scroll"].scrollTop,176);
+assert.equal(elements["wide-scroll"].scrollLeft,292);
+assert.equal(visibleRows()[0],"speed_5m","5m speedup has earliest diamond break-even");
 clickSort("alliance");
 assert.equal(elements["wide-scroll"].scrollTop,176,"Vertical scroll position should survive sorting");
 assert.equal(elements["wide-scroll"].scrollLeft,292,"Horizontal scroll position should survive sorting");

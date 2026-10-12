@@ -26,6 +26,15 @@
     Number(value).toLocaleString("en-US",{maximumFractionDigits:1});
   const itemById = id => base.items.find(i=>i.id===id) || {id,name:id,category:"Other",confidence:"unidentified"};
   const shopById = id => base.shops.find(s=>s.id===id);
+  // Shop currency icons from the game's screenshots; VIP and Diamond both cost diamonds.
+  const currencyIcon = currency => {
+    const n=({"Diamonds":0,"Alliance coins":1,"Trial medals":2,"Honor medals":3})[currency];
+    return n===undefined ? '<span class="currency-icon currency-icon-missing" aria-label="'+esc(currency)+'">?</span>' :
+      '<span class="currency-icon" role="img" aria-label="'+esc(currency)+'" title="'+esc(currency)+'" style="background-position:-'+(n*28)+'px 0"></span>';
+  };
+  const currencyCell = o => '<span class="currency-display">'+currencyIcon(o.currency)+
+    '<span>'+esc(o.currency)+'</span></span>';
+
   // Native item art from a compact, screenshot-derived 8-column WebP sprite.
   // Unknown/future items fall back to a symbol rather than showing the wrong item.
   const itemIcon = id => {
@@ -97,6 +106,7 @@
       const per=priceUnit(o), r=perThousand(o,benchmark), cost=modeledCost(o);
       const isBest=best && o.id===best.id && eligible(o);
       return '<tr><td><strong>'+esc(o.shop)+'</strong><div class="notice">'+esc(o.source)+'</div></td>'+
+        '<td>'+currencyCell(o)+'</td>'+
         '<td class="mono">'+fmt(o.price)+'</td>'+
         '<td class="mono">'+(per==null?"—":fmt(per))+'</td>'+
         '<td>'+(r==null ? (o.currency==="Diamonds" ? '<span class="muted">Diamond-priced</span>' : '<span class="muted">No benchmark</span>') :
@@ -121,8 +131,8 @@
       '</div><div class="item-display">'+itemIcon(item.id)+'<strong>'+esc(item.name)+'</strong></div><div class="value-hero"><div><p class="eyebrow">BENCHMARK / 1 ITEM</p><div class="bigval">'+(benchmark?fmt(benchmark.price)+" ◇":"Not available")+'</div><p class="note">'+esc(benchmark?.source||"Add a custom price or enable VIP benchmarks")+'</p></div>'+
       '<div><span class="badge '+(item.confidence==="confirmed"?"verified":"provisional")+'">Name: '+esc(item.confidence)+'</span></div></div>'+
       '<p class="note" style="margin-bottom:12px">'+esc(item.description||"No verified in-game tooltip yet.")+'</p>'+
-      '<div class="table-wrap"><table><thead><tr><th>Shop</th><th>Price</th><th>Per unit</th><th>◇ / 1K coins</th><th>Modeled ◇ / item</th><th>Access / proof</th><th></th></tr></thead><tbody>'+
-      (tableRows||'<tr><td colspan="7">No offers yet.</td></tr>')+'</tbody></table></div>'+
+      '<div class="table-wrap"><table><thead><tr><th>Shop</th><th>Currency</th><th>Price</th><th>Per unit</th><th>◇ / 1K coins</th><th>Modeled ◇ / item</th><th>Access / proof</th><th></th></tr></thead><tbody>'+
+      (tableRows||'<tr><td colspan="8">No offers yet.</td></tr>')+'</tbody></table></div>'+
       '<p class="notice">★ = lowest modeled cost among eligible listings with a known currency valuation. Purchase limits and currency availability still matter. The "◇ / 1K coins" column compares each shop price against the diamond benchmark, not a transferable exchange rate.</p>'+
       '</section>'+
       '<section class="panel"><h3>How the ratio works</h3><p class="note">Example: Fighter Part = 400 diamonds in the VIP shop and 800 Honor medals in the Honor shop. That implies <strong>500 diamonds of this item\'s buying power per 1,000 Honor medals</strong>. It does not mean Honor medals can be converted into diamonds. All prices are per displayed item quantity.</p></section>'+
@@ -146,6 +156,7 @@
         '<td><div class="item-name-wrap">'+itemIcon(item.id)+'<div><button class="linklike" data-select="'+esc(item.id)+'">'+esc(item.name)+'</button>'+
         '<div class="notice">'+esc(item.category)+(item.confidence!=="confirmed"?' · '+esc(item.confidence):'')+'</div></div></div></td>'+
         '<td class="mono">'+fmt(o.price)+' / '+fmt(o.quantity)+'</td>'+
+        '<td>'+currencyCell(o)+'</td>'+
         '<td class="mono">'+fixed(v.benchmark.price)+' <span class="muted">('+esc(v.benchmark.source)+')</span></td>'+
         '<td class="mono positive"><strong>'+fixed(v.ratio)+'</strong></td>'+
         '<td class="mono">'+(o.limit==null?'—':fmt(o.limit))+'</td>'+
@@ -167,12 +178,28 @@
       '<div class="hint">For example, a Fighter Part at 400 diamonds in the VIP shop versus 800 Honor medals yields 500 diamond-equivalent buying power per 1,000 Honor medals. For another item, the ratio can be completely different. These rankings compare <strong>purchasing opportunities</strong>, not the intrinsic value of currencies.</div>'+
       '<p class="notice">'+values.length+' entries with a comparable diamond benchmark · '+
         (offers.length-values.length)+' offer(s) without a diamond reference or visible price.</p>'+
-      '<div class="table-wrap"><table><thead><tr><th>#</th><th>Item</th><th>Shop price / qty</th>'+
+      '<div class="table-wrap"><table><thead><tr><th>#</th><th>Item</th><th>Shop price / qty</th><th>Currency</th>'+
         '<th>Diamond reference / item</th><th>◇ per 1,000 coins</th><th>Limit</th><th>Evidence</th></tr></thead>'+
-        '<tbody>'+(rows||'<tr><td colspan="7" class="empty">No comparable items. Select a different reference or add custom prices in Compare value.</td></tr>')+
+        '<tbody>'+(rows||'<tr><td colspan="8" class="empty">No comparable items. Select a different reference or add custom prices in Compare value.</td></tr>')+
         '</tbody></table></div>'+
       '<p class="notice">Some icon identifications and offer contents are provisional. A large ratio can simply mean the diamond-listed version is overpriced. Check quantity and actual item utility before purchasing.</p>'+
       '</section>';
+  }
+  function vipCatalogSection(){
+    if(state.shop!=="All" && state.shop!=="VIP") return "";
+    const unlocks=allOffers().filter(o=>o.shop==="VIP" && o.minVip!=null)
+      .filter(o=>(state.category==="All" || itemById(o.item).category===state.category) &&
+        (itemById(o.item).name+" "+o.item+" VIP "+o.minVip).toLowerCase().includes(state.search.toLowerCase()))
+      .sort((a,b)=>a.minVip-b.minVip);
+    if(!unlocks.length) return "";
+    return '<div class="catalog-vip-gates"><div class="section-head"><h3>VIP level-gated offers</h3>'+
+      '<span class="badge">'+unlocks.length+' confirmed gates</span></div>'+
+      '<p class="note">These remain visible even if your selected VIP level is too low. Items without a visible lock have unknown unlock requirements.</p>'+
+      '<div class="catalog-vip-list">'+unlocks.map(o=>'<div class="catalog-vip-offer">'+
+      itemIcon(o.item)+'<div><strong>'+esc(itemById(o.item).name)+'</strong>'+
+      '<div class="notice">Requires VIP '+fmt(o.minVip)+'</div>'+
+      '<div class="currency-display">'+currencyIcon(o.currency)+'<strong>'+fmt(o.price)+'</strong>'+
+      '<span class="muted">diamonds</span></div></div></div>').join("")+'</div></div>';
   }
   function catalog(){
     const list=allOffers().filter(o=>{
@@ -186,7 +213,9 @@
       const item=itemById(o.item), bench=anchor(o.item), ratio=perThousand(o,bench);
       return '<tr><td><div class="item-name-wrap">'+itemIcon(o.item)+'<div><button class="linklike" data-select="'+esc(o.item)+'">'+esc(item.name)+'</button><div class="notice">'+esc(item.category)+' · '+esc(item.confidence)+'</div></div></div></td>'+
         '<td>'+esc(o.shop)+'</td><td class="mono">'+fmt(o.price)+' <span class="muted">/ '+fmt(o.quantity)+'</span></td>'+
-        '<td class="mono">'+esc(o.currency)+'</td><td class="mono">'+(o.limit==null?"—":fmt(o.limit))+'</td>'+
+        '<td>'+currencyCell(o)+'</td>'+
+        '<td class="mono">'+(o.shop==="VIP" && o.minVip!=null ? "VIP "+fmt(o.minVip) : "—")+'</td>'+
+        '<td class="mono">'+(o.limit==null?"—":fmt(o.limit))+'</td>'+
         '<td class="mono">'+(ratio==null?"—":fixed(ratio))+'</td><td>'+access(o)+(access(o)?" ":"")+evid(o)+'</td>'+
         '<td class="muted">'+esc(o.source)+'</td></tr>';
     }).join("");
@@ -194,8 +223,9 @@
       '<div class="filterbar"><div class="field"><label for="search-field">Search by item</label><input id="search-field" placeholder="Fighter part, speedup, shard…" value="'+esc(state.search)+'"></div>'+
       '<div class="field"><label for="shop-filter">Shop</label><select id="shop-filter">'+selectOptions(["All",...base.shops.map(s=>s.id)],state.shop)+'</select></div>'+
       '<div class="field"><label for="category-filter">Category</label><select id="category-filter">'+selectOptions(["All",...new Set(base.items.map(i=>i.category))],state.category)+'</select></div></div>'+
-      '<p class="notice">'+list.length+' matching offers · VIP locked rows remain visible</p><div class="table-wrap"><table><thead><tr><th>Item</th><th>Shop</th><th>Price / qty</th><th>Currency</th><th>Limit</th><th>◇/1K</th><th>Proof</th><th>Image</th></tr></thead><tbody>'+
-      (rows||'<tr><td colspan="8" class="empty">No matching offers</td></tr>')+'</tbody></table></div></section>';
+      vipCatalogSection()+
+      '<p class="notice">'+list.length+' matching offers · VIP locked rows remain visible</p><div class="table-wrap"><table><thead><tr><th>Item</th><th>Shop</th><th>Price / qty</th><th>Currency</th><th>VIP required</th><th>Limit</th><th>◇/1K</th><th>Access / evidence</th><th>Source</th></tr></thead><tbody>'+
+      (rows||'<tr><td colspan="9" class="empty">No matching offers</td></tr>')+'</tbody></table></div></section>';
   }
   function vip(){
     const unlocks=allOffers().filter(o=>o.shop==="VIP" && o.minVip!=null).sort((a,b)=>a.minVip-b.minVip);
@@ -204,7 +234,7 @@
       '<div class="controls-grid"><div class="field"><label for="vip-select">Preview your VIP level</label><select id="vip-select">'+selectOptions(Array.from({length:19},(_,i)=>({value:i,label:"VIP "+i})),state.vip)+'</select></div></div>'+
       '<div class="level-grid">'+unlocks.map(o=>'<article class="level-card"><div class="section-kicker">VIP UNLOCK</div><div class="level">'+o.minVip+'</div>'+
         '<div class="vip-icon">'+itemIcon(o.item)+'</div><h3>'+esc(itemById(o.item).name)+'</h3><p class="desc">'+esc(itemById(o.item).description||"Tooltip not transcribed.")+'</p><p class="desc">'+esc(o.source)+' · screenshot confirmation</p>'+
-        '<p class="price">'+fmt(o.price)+' diamonds</p><p style="margin-top:10px">'+access(o)+'</p></article>').join("")+'</div>'+
+        '<p class="price">'+currencyIcon(o.currency)+' '+fmt(o.price)+' diamonds</p><p style="margin-top:10px">'+access(o)+'</p></article>').join("")+'</div>'+
       '<div class="hint">A Japanese client guide (v1.37.07) reports VIP Shop items gated between levels 4 and 11, but does not list each item\'s gate. Missing VIP 4–7 entries are deliberately unfilled. <a href="https://gamesakidori.com/z-route/vip-guide/" target="_blank" rel="noopener">Read guide ↗</a></div></section>';
   }
   function dataPage(){

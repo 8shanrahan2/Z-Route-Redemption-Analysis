@@ -202,7 +202,7 @@
   function dataPage(){
     const custom=state.additions;
     return '<div class="layout"><div class="stack"><section class="panel"><p class="section-kicker">AUDIT TRAIL</p><h2>Sources &amp; limitations</h2>'+
-      '<p class="note">Prices are derived from the initial shop screenshots and item names from additional player-supplied official tooltips. Some labels remain provisional. Stamina at 36 diamonds is user-reported, and its pack size is unknown. Screenshot prices and unlock observations are stronger evidence than third-party guides.</p>'+
+      '<p class="note">Prices are derived from the initial shop screenshots and item names from additional player-supplied official tooltips. Some labels remain provisional. The VIP item contains 10 Stamina; its 36-diamond price is user-reported and the purchase limit is unknown. Screenshot prices and unlock observations are stronger evidence than third-party guides.</p>'+
       '<div class="table-wrap"><table><thead><tr><th>Shop</th><th>Currency</th><th>Restock</th><th>Images</th></tr></thead><tbody>'+
       base.shops.map(s=>'<tr><td>'+esc(s.id)+'</td><td>'+esc(s.currency)+'</td><td>'+esc(s.reset)+'</td><td>'+esc(({Diamond:"D1",Alliance:"A2–A4",VIP:"V5–V7",Trial:"T8–T9",Honor:"H10"})[s.id])+'</td></tr>').join("")+'</tbody></table></div>'+
       '<div class="hint">The Alliance Fighter Part is sold out, so its price is not readable. The 1,000 Alliance Coin value comes from the user\'s example and a prior community claim; it is marked as <strong>reported</strong>. The game\'s item tooltip is needed to confirm some icon-only labels. Golden fighter tickets and gear-shaped Fighter Parts are separate items.</div>'+

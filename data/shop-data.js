@@ -9,7 +9,7 @@ window.ZR_DATA = (() => {
   ];
   const itemRows = [
     ["blue_ticket","Blue recruitment ticket","Heroes","provisional"],
-    ["gold_ticket","Gold fighter ticket","Fighter","provisional"],
+    ["gold_ticket","Recruit Card","Heroes","confirmed"],
     ["clipboard","Clipboard/document","Other","unidentified"],
     ["food_10k","10,000 food","Resources","confirmed"],
     ["metal_10k","10,000 metal","Resources","confirmed"],
@@ -17,7 +17,7 @@ window.ZR_DATA = (() => {
     ["blue_crate_small","Blue utility chest","Chests","provisional"],
     ["honor_blue_crate","Blue supply chest (Honor)","Chests","provisional"],
     ["hero_purple","Purple hero shard (portrait)","Heroes","provisional"],
-    ["hero_gold","Gold universal hero shard","Heroes","provisional"],
+    ["hero_gold","UR Omni Hero Shard","Heroes","confirmed"],
     ["fighter_part","Fighter part (gear)","Fighter","confirmed"],
     ["fighter_chest_1","Lv.1 fighter component chest","Fighter","provisional"],
     ["shield_24h","24-hour protection shield","Boosts","confirmed"],
@@ -44,6 +44,7 @@ window.ZR_DATA = (() => {
     ["vip_food_crate","Food crate","Resources","provisional"],
     ["vip_metal_crate","Metal crate","Resources","provisional"],
     ["dark_cans_10","10 dark cans","Materials","unidentified"],
+    ["stamina_vip","Stamina (pack size unverified)","Boosts","provisional"],
     ["decor_exchange","Decoration exchange ticket","Other","provisional"],
     ["blue_puzzle","Blue puzzle shard","Heroes","provisional"],
     ["blue_skill_book","Blue star skill book","Heroes","provisional"],
@@ -52,19 +53,33 @@ window.ZR_DATA = (() => {
     ["metal_disc","Round metal disc","Materials","unidentified"],
     ["purple_puzzle","Purple puzzle shard","Heroes","provisional"],
     ["xp_chest_brown","Brown experience chest","Chests","provisional"],
-    ["vip_2h","2-hour speedup (generic)","Boosts","confirmed"],
+    ["vip_2h","3-hr Speedup","Boosts","provisional"],
     ["universal_1h","1-hour universal speedup","Boosts","confirmed"],
-    ["universal_8h","8-hour universal speedup","Boosts","confirmed"],
-    ["vip_gray_material","Gray resource item (VIP 9)","Materials","unidentified"],
-    ["fancy_chest","Gold-rimmed chest","Chests","provisional"],
-    ["fighter_chest_3","Lv.3 fighter component chest","Fighter","provisional"],
+    ["universal_8h","8-hr Speedup","Boosts","confirmed"],
+    ["vip_gray_material","Conductive Crystal","Gear","confirmed"],
+    ["fancy_chest","Mythic Trial Chest","Chests","confirmed"],
+    ["fighter_chest_3","Lv.3 Fighter Component Chest","Fighter","confirmed"],
     ["metal_disc_1000","1,000 metal discs","Materials","provisional"],
     ["xp_chest_small","Brown experience chest (Trial)","Chests","provisional"],
-    ["card_10k","10,000 blue card/points","Other","unidentified"],
-    ["orange_map","Orange map or blueprint","Other","unidentified"],
-    ["orange_chest","Orange premium chest","Chests","provisional"]
+    ["card_10k","Combat Chip","Fighter","confirmed"],
+    ["orange_map","UR Gear Blueprint","Gear","confirmed"],
+    ["orange_chest","UR Decoration Chest","Decorations","confirmed"]
   ];
-  const items = itemRows.map(r => ({id:r[0],name:r[1],category:r[2],confidence:r[3]}));
+  // Tooltip descriptions transcribed from player-provided screenshots, 2026-10-12.
+  const officialDescriptions = {
+    gold_ticket:"Use to recruit Heroes.",
+    hero_gold:"Redeem a shard of an owned UR hero on the Enhance Hero page.",
+    fighter_chest_3:"Use to get 1 random Lv.3 Fighter Component.",
+    fancy_chest:"Obtained in Glory Trial. Small chance to obtain 100 UR Omni Hero Shards.",
+    card_10k:"Enhances Sky Fighter algorithm progress.",
+    orange_map:"Key material for promoting UR gear to 1–4 stars. Promotion unlocks after UR gear reaches Lv.40.",
+    orange_chest:"Random item: Gold Lion, Gold Wolf, Gold Eagle, Clock Tower, Merry-Go-Round, Arcade Memorial Wall, or Mini Golf Course.",
+    vip_gray_material:"Used to craft Mythic Gear.",
+    universal_8h:"Reduces time of any queue by 8 hours.",
+    vip_2h:"Tooltip reads 3-hr Speedup and reduces any queue by 3 hours; visible card icon appears to read 2h, so identity remains provisional."
+  };
+  const items = itemRows.map(r => ({id:r[0],name:r[1],category:r[2],confidence:r[3],
+    description:officialDescriptions[r[0]] || ""}));
   // [item id, shop, price, quantity, visible remaining/limit, minimum VIP if explicitly locked, screenshot, evidence, note]
   const rows = [
     ["blue_ticket","Diamond",400,1,null,null,"D1"],
@@ -120,12 +135,12 @@ window.ZR_DATA = (() => {
     ["purple_puzzle","VIP",200,1,35,null,"V6"],
     ["universal_1h","VIP",72,1,60,null,"V6","screenshot","Generic 60m arrow; not conflated with construction-specific boost."],
     ["xp_chest_brown","VIP",480,1,22,null,"V7"],
-    ["vip_2h","VIP",192,1,null,8,"V7"],
-    ["vip_gray_material","VIP",64,1,null,9,"V7"],
-    ["universal_8h","VIP",480,1,null,10,"V7","screenshot","Generic 8h arrow; distinct from construction-specific 8h boost."],
-    ["hero_gold","VIP",300,1,null,11,"V7"],
-    ["fancy_chest","Trial",200,1,10,null,"T8"],
-    ["fighter_chest_3","Trial",200,1,3,null,"T8"],
+    ["vip_2h","VIP",192,1,null,8,"V7","screenshot","Tooltip reads 3-hr Speedup, but icon behind padlock appears to say 2h. Item name/level association needs follow-up confirmation."],
+    ["vip_gray_material","VIP",64,1,null,9,"V7","screenshot","Official tooltip: Conductive Crystal. Used to craft Mythic Gear."],
+    ["universal_8h","VIP",480,1,null,10,"V7","screenshot","Official tooltip: 8-hr Speedup; reduces time of any queue by 8 hours."],
+    ["hero_gold","VIP",300,1,null,11,"V7","screenshot","Official tooltip: UR Omni Hero Shard; redeem a shard of an owned UR hero on Enhance Hero page."],
+    ["fancy_chest","Trial",200,1,10,null,"T8","screenshot","Official tooltip: Mythic Trial Chest; small chance at 100 UR Omni Hero Shards."],
+    ["fighter_chest_3","Trial",200,1,3,null,"T8","screenshot","Official tooltip: Lv.3 Fighter Component Chest; one random level-3 Fighter Component."],
     ["hero_gold","Trial",200,1,10,null,"T8"],
     ["decor_exchange","Trial",200,1,30,null,"T8"],
     ["metal_disc_1000","Trial",300,1,10,null,"T8"],
@@ -135,15 +150,16 @@ window.ZR_DATA = (() => {
     ["logs","Trial",300,1,200,null,"T8"],
     ["purple_resource_crate","Trial",500,1,200,null,"T9"],
     ["universal_1h","Trial",500,1,200,null,"T9","screenshot","Generic 60m boost; distinct from construction-specific speedup."],
-    ["card_10k","Trial",1000,1,1000,null,"T9"],
+    ["card_10k","Trial",1000,10000,1000,null,"T9","screenshot","Official tooltip: Combat Chip; enhances Sky Fighter algorithm progress. Displayed pack contains 10.0K chips."],
     ["hero_gold","Honor",3000,1,15,null,"H10"],
     ["fighter_part","Honor",800,1,120,null,"H10"],
     ["gold_ticket","Honor",2000,1,120,null,"H10"],
-    ["orange_map","Honor",10000,1,50,null,"H10"],
-    ["orange_chest","Honor",50000,1,1,null,"H10"],
+    ["orange_map","Honor",10000,1,50,null,"H10","screenshot","Official tooltip: UR Gear Blueprint; used to promote UR gear to 1–4 stars after enhancement to level 40."],
+    ["orange_chest","Honor",50000,1,1,null,"H10","screenshot","Official tooltip: UR Decoration Chest; random gold statue or decoration."],
     ["purple_coil","Honor",200,1,450,null,"H10"],
     ["decor_exchange","Honor",200,1,200,null,"H10"],
-    ["honor_blue_crate","Honor",4000,1,120,null,"H10"]
+    ["honor_blue_crate","Honor",4000,1,120,null,"H10"],
+    ["stamina_vip","VIP",36,1,null,null,"User report 2026-10-12","reported","36 diamonds reported by user; one purchasable stamina listing, not verified as one stamina point. Stack size and VIP gate unknown."]
   ];
   const offers = rows.map((r,i) => ({
     id:"offer-"+String(i+1).padStart(3,"0"), item:r[0], shop:r[1],

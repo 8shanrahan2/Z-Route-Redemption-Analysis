@@ -26,6 +26,14 @@
     Number(value).toLocaleString("en-US",{maximumFractionDigits:1});
   const itemById = id => base.items.find(i=>i.id===id) || {id,name:id,category:"Other",confidence:"unidentified"};
   const shopById = id => base.shops.find(s=>s.id===id);
+  // Native item art from a compact, screenshot-derived 8-column WebP sprite.
+  // Unknown/future items fall back to a symbol rather than showing the wrong item.
+  const itemIcon = id => {
+    const item=itemById(id), idx=item.iconIndex;
+    if (!Number.isInteger(idx) || idx<0 || idx>=52) return '<span class="item-icon item-icon-missing" aria-hidden="true">?</span>';
+    return '<span class="item-icon" aria-hidden="true" style="background-position:-'+((idx%8)*52)+'px -'+(Math.floor(idx/8)*52)+'px"></span>';
+  };
+
   const save = () => { try { localStorage.setItem(storageKey,JSON.stringify(state)); } catch(e) {} };
   const allOffers = () => [...base.offers,...state.additions].map(o => {
     const patch=state.changes[o.id]||{};
@@ -110,7 +118,7 @@
         '<div class="field"><label for="mode-select">Diamond benchmark source</label><select id="mode-select">'+selectOptions([{value:"all",label:"Cheapest Diamond or eligible VIP price"},{value:"diamond",label:"Diamond shop only"}],state.mode)+'</select></div>'+
         '<div class="field"><label for="vip-select">Your VIP level (known locked items)</label><select id="vip-select">'+selectOptions(Array.from({length:19},(_,i)=>({value:i,label:"VIP "+i})),state.vip)+'</select></div>'+
         '<div class="field"><label for="manual-anchor">Custom diamond price per unit</label><input id="manual-anchor" type="number" step="any" min="0.01" placeholder="Use observed price" value="'+esc(state.manual[item.id]??"")+'"></div>'+
-      '</div><div class="value-hero"><div><p class="eyebrow">BENCHMARK / 1 ITEM</p><div class="bigval">'+(benchmark?fmt(benchmark.price)+" ◇":"Not available")+'</div><p class="note">'+esc(benchmark?.source||"Add a custom price or enable VIP benchmarks")+'</p></div>'+
+      '</div><div class="item-display">'+itemIcon(item.id)+'<strong>'+esc(item.name)+'</strong></div><div class="value-hero"><div><p class="eyebrow">BENCHMARK / 1 ITEM</p><div class="bigval">'+(benchmark?fmt(benchmark.price)+" ◇":"Not available")+'</div><p class="note">'+esc(benchmark?.source||"Add a custom price or enable VIP benchmarks")+'</p></div>'+
       '<div><span class="badge '+(item.confidence==="confirmed"?"verified":"provisional")+'">Name: '+esc(item.confidence)+'</span></div></div>'+
       '<p class="note" style="margin-bottom:12px">'+esc(item.description||"No verified in-game tooltip yet.")+'</p>'+
       '<div class="table-wrap"><table><thead><tr><th>Shop</th><th>Price</th><th>Per unit</th><th>◇ / 1K coins</th><th>Modeled ◇ / item</th><th>Access / proof</th><th></th></tr></thead><tbody>'+
@@ -135,8 +143,8 @@
     const rows=values.map((v,index)=>{
       const o=v.o, item=itemById(o.item);
       return '<tr><td class="mono">'+(index+1)+'</td>'+
-        '<td><button class="linklike" data-select="'+esc(item.id)+'">'+esc(item.name)+'</button>'+
-        '<div class="notice">'+esc(item.category)+(item.confidence!=="confirmed"?' · '+esc(item.confidence):'')+'</div></td>'+
+        '<td><div class="item-name-wrap">'+itemIcon(item.id)+'<div><button class="linklike" data-select="'+esc(item.id)+'">'+esc(item.name)+'</button>'+
+        '<div class="notice">'+esc(item.category)+(item.confidence!=="confirmed"?' · '+esc(item.confidence):'')+'</div></div></div></td>'+
         '<td class="mono">'+fmt(o.price)+' / '+fmt(o.quantity)+'</td>'+
         '<td class="mono">'+fixed(v.benchmark.price)+' <span class="muted">('+esc(v.benchmark.source)+')</span></td>'+
         '<td class="mono positive"><strong>'+fixed(v.ratio)+'</strong></td>'+
@@ -176,7 +184,7 @@
     });
     const rows=list.map(o=>{
       const item=itemById(o.item), bench=anchor(o.item), ratio=perThousand(o,bench);
-      return '<tr><td><button class="linklike" data-select="'+esc(o.item)+'">'+esc(item.name)+'</button><div class="notice">'+esc(item.category)+' · '+esc(item.confidence)+'</div></td>'+
+      return '<tr><td><div class="item-name-wrap">'+itemIcon(o.item)+'<div><button class="linklike" data-select="'+esc(o.item)+'">'+esc(item.name)+'</button><div class="notice">'+esc(item.category)+' · '+esc(item.confidence)+'</div></div></div></td>'+
         '<td>'+esc(o.shop)+'</td><td class="mono">'+fmt(o.price)+' <span class="muted">/ '+fmt(o.quantity)+'</span></td>'+
         '<td class="mono">'+esc(o.currency)+'</td><td class="mono">'+(o.limit==null?"—":fmt(o.limit))+'</td>'+
         '<td class="mono">'+(ratio==null?"—":fixed(ratio))+'</td><td>'+access(o)+(access(o)?" ":"")+evid(o)+'</td>'+
@@ -195,7 +203,7 @@
       '<p class="note">Only visible padlock labels are treated as established minimum VIP levels. Other VIP items showed no padlock in these screenshots, but that <strong>does not establish they unlock at VIP 0</strong>.</p>'+
       '<div class="controls-grid"><div class="field"><label for="vip-select">Preview your VIP level</label><select id="vip-select">'+selectOptions(Array.from({length:19},(_,i)=>({value:i,label:"VIP "+i})),state.vip)+'</select></div></div>'+
       '<div class="level-grid">'+unlocks.map(o=>'<article class="level-card"><div class="section-kicker">VIP UNLOCK</div><div class="level">'+o.minVip+'</div>'+
-        '<h3>'+esc(itemById(o.item).name)+'</h3><p class="desc">'+esc(itemById(o.item).description||"Tooltip not transcribed.")+'</p><p class="desc">'+esc(o.source)+' · screenshot confirmation</p>'+
+        '<div class="vip-icon">'+itemIcon(o.item)+'</div><h3>'+esc(itemById(o.item).name)+'</h3><p class="desc">'+esc(itemById(o.item).description||"Tooltip not transcribed.")+'</p><p class="desc">'+esc(o.source)+' · screenshot confirmation</p>'+
         '<p class="price">'+fmt(o.price)+' diamonds</p><p style="margin-top:10px">'+access(o)+'</p></article>').join("")+'</div>'+
       '<div class="hint">A Japanese client guide (v1.37.07) reports VIP Shop items gated between levels 4 and 11, but does not list each item\'s gate. Missing VIP 4–7 entries are deliberately unfilled. <a href="https://gamesakidori.com/z-route/vip-guide/" target="_blank" rel="noopener">Read guide ↗</a></div></section>';
   }

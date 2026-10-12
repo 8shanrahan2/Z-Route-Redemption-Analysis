@@ -181,3 +181,19 @@ footer a{text-decoration:none}
 .wide-rate-shop{font-size:10px;color:var(--muted);white-space:nowrap}
 .wide-unit-entry{display:inline-flex;align-items:center;white-space:nowrap;vertical-align:middle}
 @media(max-width:620px){.wide-table{min-width:1430px}.wide-table thead th:nth-last-child(-n+3){min-width:155px;width:160px}}
+
+
+/* Wide-table view uses the viewport, instead of the 1,180px reading layout.
+   Other tabs keep the narrower column width for legibility. */
+.container.wide-layout{
+  width:100%;
+  max-width:none;
+  padding-left:clamp(12px,1.8vw,34px);
+  padding-right:clamp(12px,1.8vw,34px);
+}
+.wide-layout #workspace,.wide-layout .panel{min-width:0;width:100%}
+.wide-layout .wide-table{min-width:1450px;width:100%}
+@media(max-width:900px){
+  .container.wide-layout{padding-left:14px;padding-right:14px}
+  .wide-layout .wide-table{min-width:1430px}
+}

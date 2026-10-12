@@ -85,6 +85,28 @@ assert.match(rendered(), /<th>Currency<\/th>/);
 assert.match(rendered(), /class="item-icon"/);
 handlers.change({target:{id:"rank-shop",value:"Honor",dataset:{}}});
 assert.match(rendered(), /Fighter Parts/);
+tab("wide");
+assert.match(rendered(), /Wide price table/);
+assert.match(rendered(), /id="wide-table"/);
+assert.match(rendered(), /id="wide-download"/);
+assert.equal((rendered().match(/data-wide-item=/g)||[]).length,52);
+for (const label of ["Alliance coins","Diamond shop","VIP shop","Trial medals","Honor medals"]) {
+  assert(rendered().includes(label), "Missing shop column "+label);
+}
+const heroWideRow = rendered().match(/<tr data-wide-item="hero_gold">([\s\S]*?)<\/tr>/)?.[1];
+assert(heroWideRow, "Missing UR Omni Hero Shard wide row");
+assert.equal((heroWideRow.match(/<td/g)||[]).length,5);
+assert.match(heroWideRow, /3,000/);
+assert.match(heroWideRow, /VIP 11 · locked/);
+assert.match(heroWideRow, /wide-empty/); // no Diamond-shop listing
+assert.match(heroWideRow, /wide-amount mono">200/); // Trial
+const fighterWideRow = rendered().match(/<tr data-wide-item="fighter_part">([\s\S]*?)<\/tr>/)?.[1];
+assert(fighterWideRow && fighterWideRow.includes("reported price"));
+const chipWideRow = rendered().match(/<tr data-wide-item="card_10k">([\s\S]*?)<\/tr>/)?.[1];
+assert(chipWideRow && chipWideRow.includes("for 10,000 units"));
+assert.match(rendered(), /VIP 8 · locked/);
+assert.match(rendered(), /VIP 9 · locked/);
+assert.match(rendered(), /VIP 10 · locked/);
 tab("catalog");
 assert.match(rendered(), /Shop price catalog/);
 assert.match(rendered(), /class="item-icon"/);

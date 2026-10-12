@@ -8,7 +8,7 @@
     tab:"compare", selected:"fighter_part", vip:7, mode:"all", rankShop:"Alliance",
     rates:{Alliance:"",Trial:"",Honor:""}, manual:{},
     changes:{}, additions:[], shop:"All", search:"", category:"All",
-    includeReported:true, wideSearch:"", wideCategory:"All", wideScope:"all"
+    includeReported:true, wideSearch:"", wideCategory:"All", wideScope:"all", wideSortKey:"item", wideSortDirection:"asc"
   };
   let state = {...defaults};
   try {
@@ -222,12 +222,26 @@
   };
   const wideRows = () => {
     const groups=wideGroups();
-    return base.items.filter(item=>{
+    const rows=base.items.filter(item=>{
       const shops=groups.get(item.id);
       return shops && (!state.wideSearch || (item.name+" "+item.category).toLowerCase().includes(state.wideSearch.trim().toLowerCase())) &&
         (state.wideCategory==="All" || item.category===state.wideCategory) &&
         (state.wideScope!=="multi" || shops.size>=2);
-    }).sort((a,b)=>a.name.localeCompare(b.name)).map(item=>({item,shops:groups.get(item.id)}));
+    }).map(item=>({item,shops:groups.get(item.id)}));
+    const sortColumn=rateColumns.find(c=>c.key===state.wideSortKey);
+    const direction=state.wideSortDirection==="desc" ? -1 : 1;
+    rows.sort((a,b)=>{
+      if(sortColumn){
+        const av=lowestMinuteRate(a.item,a.shops,sortColumn);
+        const bv=lowestMinuteRate(b.item,b.shops,sortColumn);
+        // Missing prices and non-speedups sort LAST regardless of direction.
+        if(av==null && bv!=null)return 1;
+        if(bv==null && av!=null)return -1;
+        if(av!=null && bv!=null && av!==bv)return (av-bv)*direction;
+      }
+      return a.item.name.localeCompare(b.item.name)*(sortColumn?1:direction);
+    });
+    return rows;
   };
   const sortedShopOffers = offers => [...(offers||[])].sort((a,b)=>{
     const aPrice=priceUnit(a), bPrice=priceUnit(b);
@@ -253,38 +267,58 @@
       priceUnit(offer)/minutes : null;
   };
   const fmtMinuteRate = value => Number(value).toLocaleString("en-US",{maximumFractionDigits:3});
-  // The list follows the same left-to-right order as the shop price columns.
-  // Never compare currencies as if they were interchangeable.
-  const normalizedMinuteRates = (item, shops) => {
-    if (!(item.speedupMinutes>0)) return [];
-    return wideColumns.flatMap(column=>sortedShopOffers(shops.get(column.shop))
+  // Keep each shop distinct: Diamond and VIP both spend diamonds.
+  const rateColumns = [
+    {key:"diamonds",label:"Diamonds / min",currency:"Diamonds",shops:["Diamond","VIP"]},
+    {key:"alliance",label:"Alliance coins / min",currency:"Alliance coins",shops:["Alliance"]},
+    {key:"trial",label:"Trial medals / min",currency:"Trial medals",shops:["Trial"]}
+  ];
+  const minuteRatesForColumn = (item,shops,column) => {
+    if(!(item.speedupMinutes>0))return [];
+    return column.shops.flatMap(shop=>sortedShopOffers(shops.get(shop))
       .filter(o=>minuteRate(o)!=null)
-      .map(o=>({offer:o,shop:column.shop,currency:column.currency,perMinute:minuteRate(o)})));
+      .map(o=>({offer:o,shop,perMinute:minuteRate(o)})))
+      .sort((a,b)=>a.perMinute-b.perMinute || a.shop.localeCompare(b.shop));
   };
-  const wideMinuteCell = (item,shops) => {
-    if (!(item.speedupMinutes>0)) return '<td class="wide-empty" title="Not a queue speedup">—</td>';
-    const rates=normalizedMinuteRates(item,shops);
-    if(!rates.length) return '<td class="wide-unavailable">Price unknown</td>';
+  // Numeric sort uses unrounded rates. Never compare across currencies.
+  const lowestMinuteRate = (item,shops,column) => minuteRatesForColumn(item,shops,column)[0]?.perMinute ?? null;
+  const wideMinuteCell = (item,shops,column) => {
+    if(!(item.speedupMinutes>0))return '<td class="wide-empty" title="Not a queue speedup">—</td>';
+    const rates=minuteRatesForColumn(item,shops,column);
+    if(!rates.length)return '<td class="wide-empty" title="No known price for this currency">—</td>';
     return '<td class="wide-minutes-cell">'+rates.map((r,i)=>{
+      const label=r.shop==="VIP" ? "VIP"+(r.offer.minVip!=null?" "+r.offer.minVip:"") : r.shop;
+      const locked=r.shop==="VIP" && r.offer.minVip!=null && r.offer.minVip>state.vip;
       const display=fmtMinuteRate(r.perMinute);
       return (i?'<span class="wide-rate-separator">, </span>':"")+
-        '<span class="wide-unit-entry" title="'+esc(r.shop+' shop: '+display+' '+r.currency+' per minute')+'">'+
-          '<span class="mono">'+display+'</span> '+currencyIcon(r.currency)+'</span>';
+        '<span class="wide-unit-entry" title="'+esc(label+': '+display+' '+column.currency+' per minute')+'">'+
+        '<span class="mono">'+display+'</span> '+currencyIcon(column.currency)+
+        '<span class="wide-rate-shop">'+esc(label)+(locked?' (locked)':'')+'</span></span>';
     }).join("")+'</td>';
   };
-  const normalizedMinuteCsv = (item,shops) => normalizedMinuteRates(item,shops)
-    .map(r=>fmtMinuteRate(r.perMinute)+" "+r.currency+" / min ("+r.shop+")").join(", ");
+  const normalizedMinuteCsv = (item,shops,column) => minuteRatesForColumn(item,shops,column)
+    .map(r=>fmtMinuteRate(r.perMinute)+(column.shops.length>1?" ("+r.shop+(r.offer.minVip!=null?" VIP "+r.offer.minVip:"")+")":"")).join(" | ");
+  const wideSortHeading = column => {
+    const active=state.wideSortKey===column.key;
+    const direction=active ? state.wideSortDirection : null;
+    const arrow=active ? (direction==="asc"?"↑":"↓") : "↕";
+    return '<th scope="col" aria-sort="'+(active?(direction==="asc"?"ascending":"descending"):"none")+'">'+
+      '<button type="button" class="wide-sort-button'+(active?' active':'')+'" data-wide-sort="'+esc(column.key)+'" title="Sort by '+esc(column.label)+'">'+
+      currencyIcon(column.currency)+'<span>'+esc(column.label)+'</span><span class="wide-sort-arrow" aria-hidden="true">'+arrow+'</span>'+
+      '</button></th>';
+  };
   const escapeCsv = value => '"'+String(value??"").replace(/"/g,'""')+'"';
   function downloadWideCsv(){
     const head=["Item","Category",...wideColumns.map(c=>c.label+" price"),
-      ...wideColumns.map(c=>c.label+" quantity"),"VIP required","Cost per minute by shop"];
+      ...wideColumns.map(c=>c.label+" quantity"),"VIP required",
+      ...rateColumns.map(c=>"Cost/min "+c.currency)];
     const lines=[head,...wideRows().map(({item,shops})=>{
       const byShop=wideColumns.map(c=>sortedShopOffers(shops.get(c.shop)));
       return [item.name,item.category,
         ...byShop.map(list=>list.map(o=>o.price??"").join(" | ")),
         ...byShop.map(list=>list.map(o=>o.quantity).join(" | ")),
         (byShop[2]||[]).map(o=>o.minVip??"").join(" | "),
-        normalizedMinuteCsv(item,shops)];
+        ...rateColumns.map(c=>normalizedMinuteCsv(item,shops,c))];
     })].map(row=>row.map(escapeCsv).join(","));
     const blob=new Blob(["\uFEFF"+lines.join("\r\n")],{type:"text/csv;charset=utf-8"});
     const url=URL.createObjectURL(blob),link=document.createElement("a");
@@ -294,6 +328,11 @@
   }
   function wideTable(){
     const rows=wideRows();
+    const rateHead=rateColumns.map(wideSortHeading).join("");
+    const itemSortActive=state.wideSortKey==="item";
+    const itemSortButton='<button type="button" class="wide-sort-button'+(itemSortActive?' active':'')+
+      '" data-wide-sort="item">Item <span class="wide-sort-arrow" aria-hidden="true">'+
+      (itemSortActive?(state.wideSortDirection==="asc"?"↑":"↓"):"↕")+'</span></button>';
     const head=wideColumns.map(c=>'<th scope="col">'+
       '<div class="wide-heading">'+currencyIcon(c.currency)+'<span>'+esc(c.label)+'</span></div></th>').join("");
     const body=rows.map(({item,shops})=>
@@ -301,11 +340,11 @@
       '<div class="item-name-wrap">'+itemIcon(item.id)+'<div><button class="linklike" data-select="'+esc(item.id)+'">'+
       esc(item.name)+'</button><div class="notice">'+esc(item.category)+'</div></div></div></th>'+
       wideColumns.map(c=>widePriceCell(shops.get(c.shop),c.shop)).join("")+
-      wideMinuteCell(item,shops)+'</tr>').join("");
+      rateColumns.map(c=>wideMinuteCell(item,shops,c)).join("")+'</tr>').join("");
     return '<section class="panel"><div class="section-head"><div>'+
       '<p class="section-kicker">ITEM × SHOP / DENORMALIZED</p><h2>Wide price table</h2></div>'+
       '<button class="btn ghost" id="wide-download">Download CSV</button></div>'+
-      '<p class="note">Each item appears once, with prices from all five shops in separate columns. Amounts are the listed price for the offered quantity; an empty location means it was not observed, not that it is free. The Cost / min column divides the price by the total minutes purchased and lists each shop currency with its icon. VIP-locked offers remain visible.</p>'+
+      '<p class="note">Each item appears once, with prices from all five shops in separate columns. Amounts are the listed price for the offered quantity; an empty location means it was not observed, not that it is free. The three Cost/min columns divide each shop price by the minutes purchased. Click a Cost/min header to sort numerically (lowest first; click again to reverse). Diamond and VIP shop rates share a column and retain their shop labels. Missing rates always sort last; VIP-locked offers remain visible.</p>'+
       '<div class="filterbar wide-filters">'+
       '<div class="field"><label for="wide-search">Search items</label><input id="wide-search" placeholder="UR Omni Hero Shard…" value="'+esc(state.wideSearch)+'"></div>'+
       '<div class="field"><label for="wide-category">Category</label><select id="wide-category">'+
@@ -314,9 +353,9 @@
       selectOptions([{value:"all",label:"All items"},{value:"multi",label:"In 2+ shops"}],state.wideScope)+'</select></div></div>'+
       '<p class="notice">'+rows.length+' items shown · '+allOffers().length+' source offers · prices are not currency-converted</p>'+
       '<div class="table-wrap wide-scroll"><table class="wide-table" id="wide-table">'+
-      '<thead><tr><th scope="col">Item</th>'+head+'<th scope="col">Cost / min</th></tr></thead><tbody>'+
-      (body||'<tr><td colspan="7" class="empty">No matching items</td></tr>')+'</tbody></table></div>'+
-      '<p class="notice">— = item not listed in that shop · "Price unknown" = listing exists but its price could not be read · "for N units" indicates a bundle. "Reported price" flags figures not independently verified in a screenshot. CSV includes separate quantity, VIP requirement, and currency-labeled cost-per-minute columns. Queue speedups only—protective shields and stamina are not speedups.</p></section>';
+      '<thead><tr><th scope="col" aria-sort="'+(itemSortActive?(state.wideSortDirection==="asc"?"ascending":"descending"):"none")+'">'+itemSortButton+'</th>'+head+rateHead+'</tr></thead><tbody>'+
+      (body||'<tr><td colspan="9" class="empty">No matching items</td></tr>')+'</tbody></table></div>'+
+      '<p class="notice">— = item not listed in that shop · "Price unknown" = listing exists but its price could not be read · "for N units" indicates a bundle. "Reported price" flags figures not independently verified in a screenshot. CSV includes separate quantity, VIP requirement, and three currency-specific cost-per-minute columns. Queue speedups only—protective shields and stamina are not speedups.</p></section>';
   }
 
   function catalog(){
@@ -388,6 +427,16 @@
     if(tab){state.tab=tab.dataset.tab;save();render();return;}
     const selected=e.target.closest("[data-select]");
     if(selected){state.selected=selected.dataset.select;state.tab="compare";save();render();window.scrollTo({top:0,behavior:"smooth"});return;}
+    const sort=e.target.closest("[data-wide-sort]");
+    if(sort){
+      const key=sort.dataset.wideSort;
+      if(key==="item" || rateColumns.some(c=>c.key===key)){
+        if(state.wideSortKey===key)state.wideSortDirection=state.wideSortDirection==="asc"?"desc":"asc";
+        else {state.wideSortKey=key;state.wideSortDirection="asc";}
+        save();render();
+      }
+      return;
+    }
     const edit=e.target.closest("[data-edit]");
     if(edit){
       const o=allOffers().find(x=>x.id===edit.dataset.edit);

@@ -28,6 +28,16 @@ Additional in-game tooltip screenshots confirmed the official names **Recruit Ca
 - The player verified the crafting sequence: **4 Heat-Resistant Gold → 1 Composite Material**, **4 Composite Materials → 1 Conductive Crystal**. Same items from different shops are merged for meaningful price ratios.
 - Four remaining labels are tentative: **Lv.1 Fighter Component Chest** and the three VIP resource crate names (Food, Oil, Metal). Other items still have unverified shop prices or purchase limits, as marked.
 
+## Item icons
+
+The site includes a lightweight **52-icon WebP sprite** at `assets/item-icons.webp` (23 KB), cropped from the user-provided shop screenshots. Each of the 52 current item records has an `iconIndex` in `data/shop-data.js`. The site uses the same item icon in **Compare value**, **Value rankings**, **Full catalog**, and **VIP unlocks**.
+
+- Eight columns, 52 × 52 pixels per icon; icon `n` starts at `x = (n % 8) * 52` and `y = floor(n / 8) * 52`.
+- The index is tied to the existing `itemRows` order; when adding an item, extend the sprite and maintain the index rather than reordering existing item entries.
+- The two VIP locked generic speedup icons use screenshot-derived speedup art with a duration label (3h and 8h) to avoid using the padlock image as the item icon. These two are reconstructed **representations**, not literal unlocked-game screenshots.
+- Unknown future items display a `?` fallback rather than reusing another item's art.
+- Native Z Route: Redemption game art belongs to the original game's rights holders. This fan-made reference is not affiliated with the publisher.
+
 ## Smoke tests
 
 Run `node tests/smoke.cjs` (Node 18+, no dependencies). Checks item integrity, cross-shop equivalences, VIP gates and the rendering of all five app sections. The UI/data smoke tests were also run using a JavaScript runtime against the GitHub-committed source.

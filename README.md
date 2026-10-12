@@ -9,7 +9,8 @@ A dependency-free static web app for comparing the **Diamond**, **Alliance**, **
 - Show **all four confirmed VIP-gated offers directly in the Full Catalog**, with required VIP levels and prices, even when the selected VIP level is insufficient. Gating is only known for VIP 8–11; earlier unlock requirements must not be guessed.
 - Use the **Wide table** tab for a denormalized **one-row-per-item** view with separate **Alliance coins**, **Diamond shop**, **VIP shop**, **Trial medals**, and **Honor medals** price columns. Authentic currency icons appear in the column headers; item icons stay alongside the item names.
 - Search and filter that pivoted view, including the option to show only items sold in **two or more shops**. Locked VIP items remain visible with their required level. Missing listings show a dash; unknown prices are distinct; bundles show their quantity (e.g. 1,000 Refined Stones).
-- **Download wide CSV** to export the filtered rows, including each shop's listed price, quantity and applicable VIP requirement. A price is the listed cost for the offer's quantity, not automatically normalized to a single unit.
+- The **Wide table → Cost / min** column automatically normalizes the 12 confirmed queue-speedup items by duration: shop price ÷ (quantity × duration in minutes). For each item, all available shop-specific rates are listed in shop order, comma-separated, with the screenshot-derived currency icon **after** each rate (e.g. a 60-minute construction speedup at 900 Alliance coins = **15 coins/min**). VIP-locked speedups remain visible. Non-speedups, including shields and stamina, show a dash.
+- **Download wide CSV** to export the filtered rows, including shop prices, quantities, required VIP level, and a currency-/shop-labeled **Cost per minute by shop** field. Prices are listed per offer; the normalized rate is a separate calculation rather than a cross-currency exchange rate.
 - Calculate **implied diamond purchasing power per 1,000 shop currency** from matching diamond-priced items; the **Value rankings** tab orders offers within each currency by that benchmark.
 - Enter your own *subjective* diamond value per 1,000 Alliance / Trial / Honor currency units to see normalized costs and the least-expensive accessible shop. These are opportunity-cost assumptions, **not actual exchange rates**.
 - Choose between the regular Diamond shop baseline or the cheapest eligible Diamond/VIP offer as the item reference price.
@@ -45,7 +46,7 @@ The site includes a lightweight **52-icon WebP sprite** at `assets/item-icons.we
 
 ## Smoke tests
 
-Run `node tests/smoke.cjs` (Node 18+, no dependencies). Checks item integrity, cross-shop equivalences, VIP gates, all four currency icons, and the rendering of all six app sections, including the 52-row denormalized price table and bundle quantities. The UI/data smoke tests were also run using a JavaScript runtime against the GitHub-committed source.
+Run `node tests/smoke.cjs` (Node 18+, no dependencies). Checks item integrity, cross-shop equivalences, VIP gates, all four currency icons, and the rendering of all six app sections, including the 52-row denormalized price table, speedup cost-per-minute math (with multiple currencies), VIP requirements, and bundle quantities. The UI/data smoke tests were also run using a JavaScript runtime against the GitHub-committed source.
 
 ## Sources and caveats
 

@@ -70,6 +70,16 @@ assert.equal(official.vip_3h.name, "3-hr Speedup");
 assert.equal(offers.find(o => o.item === "metal_disc" && o.shop === "Trial").quantity,1000);
 assert.equal(offers.find(o => o.item === "logs" && o.shop === "VIP").price,64);
 assert.equal(offers.find(o => o.item === "logs" && o.shop === "Alliance").price,800);
+assert.equal(official.build_1h.speedupMinutes,60);
+assert.equal(official.build_8h.speedupMinutes,480);
+assert.equal(official.speed_5m.speedupMinutes,5);
+assert.equal(official.vip_3h.speedupMinutes,180);
+assert.equal(official.universal_1h.speedupMinutes,60);
+assert.equal(official.universal_8h.speedupMinutes,480);
+assert.equal(items.filter(i => i.speedupMinutes != null).length,12);
+assert.equal(official.shield_24h.speedupMinutes,null);
+assert.equal(official.dark_cans_10.speedupMinutes,null);
+
 vm.runInNewContext(text("assets/app.js"), sandbox, {filename: "app.js"});
 const rendered = () => elements.workspace.innerHTML;
 assert.match(rendered(), /Fighter Parts/);
@@ -89,17 +99,33 @@ tab("wide");
 assert.match(rendered(), /Wide price table/);
 assert.match(rendered(), /id="wide-table"/);
 assert.match(rendered(), /id="wide-download"/);
+assert(rendered().includes('<th scope="col">Cost / min</th>'));
+
 assert.equal((rendered().match(/data-wide-item=/g)||[]).length,52);
 for (const label of ["Alliance coins","Diamond shop","VIP shop","Trial medals","Honor medals"]) {
   assert(rendered().includes(label), "Missing shop column "+label);
 }
 const heroWideRow = rendered().match(/<tr data-wide-item="hero_gold">([\s\S]*?)<\/tr>/)?.[1];
 assert(heroWideRow, "Missing UR Omni Hero Shard wide row");
-assert.equal((heroWideRow.match(/<td/g)||[]).length,5);
+assert.equal((heroWideRow.match(/<td/g)||[]).length,6);
 assert.match(heroWideRow, /3,000/);
 assert.match(heroWideRow, /VIP 11 · locked/);
 assert.match(heroWideRow, /wide-empty/); // no Diamond-shop listing
 assert.match(heroWideRow, /wide-amount mono">200/); // Trial
+
+const getWideRow = item => rendered().split('data-wide-item="'+item+'"')[1]?.split('</tr>')[0] ?? "";
+const buildOneHour = getWideRow("build_1h");
+assert(buildOneHour.includes('>15</span>') && buildOneHour.includes('aria-label="Alliance coins"'),"1-hour construction should cost 15 Alliance coins/min");
+const buildEightHour = getWideRow("build_8h");
+assert(buildEightHour.includes('>12.5</span>'),"8-hour construction should cost 12.5 Alliance coins/min");
+const fiveMinute = getWideRow("speed_5m");
+assert(fiveMinute.includes('>15</span>') && fiveMinute.includes('>1.6</span>'),"5-minute speedup normalization failed");
+assert.equal((fiveMinute.match(/class="wide-unit-entry"/g)||[]).length,2);
+assert(fiveMinute.includes('class="wide-rate-separator">, </span>'),"Multi-shop values should be comma-separated");
+const threeHour = getWideRow("vip_3h");
+assert(threeHour.includes('>1.067</span>'),"VIP 8 3-hour speedup should cost 1.067 diamonds/min");
+assert(!getWideRow("shield_8h").includes('wide-unit-entry'),"Shields must not count as speedups");
+assert(!getWideRow("dark_cans_10").includes('wide-unit-entry'),"Stamina must not count as speedup time");
 const fighterWideRow = rendered().match(/<tr data-wide-item="fighter_part">([\s\S]*?)<\/tr>/)?.[1];
 assert(fighterWideRow && fighterWideRow.includes("reported price"));
 const chipWideRow = rendered().match(/<tr data-wide-item="card_10k">([\s\S]*?)<\/tr>/)?.[1];

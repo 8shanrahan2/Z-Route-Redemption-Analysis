@@ -138,15 +138,37 @@ for (const label of ["Diamonds / min","Alliance coins / min","Trial medals / min
 }
 assert.equal((rendered().match(/data-wide-sort=/g)||[]).length,5);
 assert.match(rendered(), /Instant-rate break-even/);
+assert.match(rendered(), /Cost per Conductive Crystal/);
 assert.equal((rendered().match(/data-wide-item=/g)||[]).length,52);
 for (const label of ["Alliance coins","Diamond shop","VIP shop","Trial medals","Honor medals"]) {
   assert(rendered().includes(label), "Missing original shop column "+label);
 }
 const getWideRow = item => rendered().split('data-wide-item="'+item+'"')[1]?.split('</tr>')[0] ?? "";
 const wideCells = item => [...getWideRow(item).matchAll(/<td[^>]*>([\s\S]*?)<\/td>/g)].map(m=>m[1]);
+
+const crystalCell=id=>wideCells(id)[9];
+assert(crystalCell("blue_hex").includes("wide-crystal-entry"));
+assert(crystalCell("blue_hex").includes('>800</strong>') &&
+       crystalCell("blue_hex").includes('>80</strong>') &&
+       crystalCell("blue_hex").includes('aria-label="Alliance coins"') &&
+       crystalCell("blue_hex").includes('aria-label="Diamonds"') &&
+       crystalCell("blue_hex").includes("×16"),
+       "16 Heat-Resistant Gold must cost 800 Alliance coins or 80 VIP diamonds");
+assert(crystalCell("purple_coil").includes('>800</strong>') &&
+       crystalCell("purple_coil").includes('>64</strong>') &&
+       crystalCell("purple_coil").includes('aria-label="Honor medals"') &&
+       crystalCell("purple_coil").includes("×4"),
+       "4 Composite Materials must cost 800 Alliance, 64 VIP, or 800 Honor");
+assert(crystalCell("logs").includes('>800</strong>') &&
+       crystalCell("logs").includes('>64</strong>') &&
+       crystalCell("logs").includes('>300</strong>') &&
+       crystalCell("logs").includes('VIP 9 (locked)') &&
+       crystalCell("logs").includes("×1"),
+       "Direct Conductive Crystal prices should stay unchanged, including VIP 9 gate");
+assert.equal(crystalCell("hero_gold").trim(),"—");
 const heroWideRow=getWideRow("hero_gold");
 assert(heroWideRow,"Missing UR Omni Hero Shard");
-assert.equal(wideCells("hero_gold").length,9); // 5 shop columns + 3 rate columns + break-even
+assert.equal(wideCells("hero_gold").length,10); // 5 shop columns + 3 rates + parity + crystal equivalent
 assert(heroWideRow.includes("3,000") && heroWideRow.includes("VIP 11 · locked"));
 assert(heroWideRow.includes("wide-empty") && heroWideRow.includes('wide-amount mono">200'));
 const c1=wideCells("build_1h"), c8=wideCells("build_8h");
@@ -217,6 +239,12 @@ assert.equal(visibleRows()[0],"universal_1h"); // 8.333 trial medals/min
 handlers.change({target:{id:"alliance-assumption",value:"80",dataset:{rate:"Alliance"}}});
 assert(wideCells("build_1h")[8].includes("397d 8h 45m") && wideCells("build_1h")[8].includes("modeled"),
   "User-supplied Alliance conversion should generate a labeled break-even time");
+
+const vipGold=offers.find(o=>o.item==="blue_hex"&&o.shop==="VIP");
+sandbox.window.prompt=()=> "6";
+handlers.click({target:{closest(selector){return selector==="[data-edit]"?{dataset:{edit:vipGold.id}}:null;}}});
+assert(crystalCell("blue_hex").includes('>96</strong>') &&
+       crystalCell("blue_hex").includes("edited"),"Changing Heat-Resistant Gold price to 6 diamonds must yield 96 diamonds/crystal");
 tab("catalog");
 assert(!wideClasses.has("wide-layout"),"Other tabs should use the narrower reading layout");
 assert.match(rendered(), /Shop price catalog/);

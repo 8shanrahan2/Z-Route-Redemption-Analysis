@@ -264,6 +264,42 @@
         (meta.length?'<span class="wide-note">'+esc(meta.join(" · "))+'</span>':"")+'</div>';
     }).join("")+'</td>';
   };
+
+  // Crafting progression: 4 Heat-Resistant Gold => 1 Composite Material;
+  // 4 Composite Materials => 1 Conductive Crystal.
+  // Normalize each material's *unit* shop price to one finished crystal.
+  // Keep original currencies separate; this is not an exchange-rate estimate.
+  const crystalConversion = {blue_hex:16,purple_coil:4,logs:1};
+  const crystalEquivalents = (item,shops) => {
+    const multiplier=crystalConversion[item.id];
+    if(!multiplier)return [];
+    return wideColumns.flatMap(({shop})=>sortedShopOffers(shops.get(shop)).map(o=>({
+      offer:o,multiplier,equivalent:priceUnit(o)==null?null:priceUnit(o)*multiplier
+    })));
+  };
+  const wideCrystalCell = (item,shops) => {
+    const offers=crystalEquivalents(item,shops);
+    if(!offers.length)return '<td class="wide-empty" title="Only conductive-crystal crafting materials have a crystal-equivalent price">—</td>';
+    return '<td class="wide-crystal-cell">'+offers.map(({offer:o,multiplier,equivalent})=>{
+      const locked=o.shop==="VIP" && o.minVip!=null && o.minVip>state.vip;
+      const label=o.shop+(o.minVip!=null?" "+o.minVip:"")+(locked?" (locked)":"");
+      const note=(o.evidence==="reported"?" · reported":o.evidence==="edited"?" · edited":"");
+      const details=multiplier+" × "+item.name+" at "+fmt(o.price)+" "+o.currency+
+        " for "+fmt(o.quantity)+" items each = "+(equivalent==null?"unknown":fmt(equivalent))+
+        " "+o.currency+" per Conductive Crystal.";
+      return '<div class="wide-crystal-entry" title="'+esc(details)+'">'+
+        '<div class="wide-crystal-price">'+
+        (equivalent==null?'<span class="wide-unavailable">Price unknown</span>':
+          '<strong class="mono">'+fmt(equivalent)+'</strong>')+
+        currencyIcon(o.currency)+'</div>'+
+        '<span class="wide-rate-shop">'+esc(label)+' · ×'+multiplier+esc(note)+'</span>'+
+        '</div>';
+    }).join("")+'</td>';
+  };
+  const normalizedCrystalCsv = (item,shops) => crystalEquivalents(item,shops).map(({offer:o,multiplier,equivalent})=>
+    (equivalent==null?"Price unknown":String(equivalent))+" "+o.currency+" ("+o.shop+
+    (o.minVip!=null?" VIP "+o.minVip:"")+", x"+multiplier+
+    (o.evidence==="reported"?", reported":o.evidence==="edited"?", edited":"")+")").join(" | ");
   const minuteRate = offer => {
     const minutes=itemById(offer.item).speedupMinutes;
     return Number.isFinite(minutes) && minutes>0 && priceUnit(offer)!=null ?
@@ -357,14 +393,14 @@
   function downloadWideCsv(){
     const head=["Item","Category",...wideColumns.map(c=>c.label+" price"),
       ...wideColumns.map(c=>c.label+" quantity"),"VIP required",
-      ...rateColumns.map(c=>"Cost/min "+c.currency),"Instant-rate break-even (average diamonds/min)"];
+      ...rateColumns.map(c=>"Cost/min "+c.currency),"Instant-rate break-even (average diamonds/min)","Conductive Crystal equivalent per unit"];
     const lines=[head,...wideRows().map(({item,shops})=>{
       const byShop=wideColumns.map(c=>sortedShopOffers(shops.get(c.shop)));
       return [item.name,item.category,
         ...byShop.map(list=>list.map(o=>o.price??"").join(" | ")),
         ...byShop.map(list=>list.map(o=>o.quantity).join(" | ")),
         (byShop[2]||[]).map(o=>o.minVip??"").join(" | "),
-        ...rateColumns.map(c=>normalizedMinuteCsv(item,shops,c)),normalizedBreakCsv(item,shops)];
+        ...rateColumns.map(c=>normalizedMinuteCsv(item,shops,c)),normalizedBreakCsv(item,shops),normalizedCrystalCsv(item,shops)];
     })].map(row=>row.map(escapeCsv).join(","));
     const blob=new Blob(["\uFEFF"+lines.join("\r\n")],{type:"text/csv;charset=utf-8"});
     const url=URL.createObjectURL(blob),link=document.createElement("a");
@@ -386,11 +422,11 @@
       '<div class="item-name-wrap">'+itemIcon(item.id)+'<div><button class="linklike" data-select="'+esc(item.id)+'">'+
       esc(item.name)+'</button><div class="notice">'+esc(item.category)+'</div></div></div></th>'+
       wideColumns.map(c=>widePriceCell(shops.get(c.shop),c.shop)).join("")+
-      rateColumns.map(c=>wideMinuteCell(item,shops,c)).join("")+wideBreakCell(item,shops)+'</tr>').join("");
+      rateColumns.map(c=>wideMinuteCell(item,shops,c)).join("")+wideBreakCell(item,shops)+wideCrystalCell(item,shops)+'</tr>').join("");
     return '<section class="panel"><div class="section-head"><div>'+
       '<p class="section-kicker">ITEM × SHOP / DENORMALIZED</p><h2>Wide price table</h2></div>'+
       '<button class="btn ghost" id="wide-download">Download CSV</button></div>'+
-      '<p class="note">Each item appears once, with prices from all five shops in separate columns. Amounts are the listed price for the offered quantity; an empty location means it was not observed, not that it is free. The three Cost/min columns divide each shop price by the minutes purchased. Click a Cost/min header to sort numerically (lowest first; click again to reverse). Diamond and VIP shop rates share a column and retain their shop labels. Missing rates always sort last; VIP-locked offers remain visible. Instant-rate break-even is the estimated timer length where the instant diamond price per minute declines to the shop speedup rate. Below it, the shop has the cheaper cost/min; above it, instant completion is cheaper per minute. These are rate comparisons, not the diamonds required to finish one short queue. Non-diamond shops require your subjective diamond-equivalent values from Compare value.</p>'+
+      '<p class="note">Each item appears once, with prices from all five shops in separate columns. Amounts are the listed price for the offered quantity; an empty location means it was not observed, not that it is free. The three Cost/min columns divide each shop price by the minutes purchased. Click a Cost/min header to sort numerically (lowest first; click again to reverse). Diamond and VIP shop rates share a column and retain their shop labels. Missing rates always sort last; VIP-locked offers remain visible. Instant-rate break-even is the estimated timer length where the instant diamond price per minute declines to the shop speedup rate. Below it, the shop has the cheaper cost/min; above it, instant completion is cheaper per minute. These are rate comparisons, not the diamonds required to finish one short queue. Non-diamond shops require your subjective diamond-equivalent values from Compare value. The Cost per Conductive Crystal column calculates the price of one crystal from 16 Heat-Resistant Gold, 4 Composite Materials, or 1 direct crystal; prices remain in their original shop currencies and use per-unit pricing for bundles.</p>'+
       '<div class="filterbar wide-filters">'+
       '<div class="field"><label for="wide-search">Search items</label><input id="wide-search" placeholder="UR Omni Hero Shard…" value="'+esc(state.wideSearch)+'"></div>'+
       '<div class="field"><label for="wide-category">Category</label><select id="wide-category">'+
@@ -399,9 +435,9 @@
       selectOptions([{value:"all",label:"All items"},{value:"multi",label:"In 2+ shops"}],state.wideScope)+'</select></div></div>'+
       '<p class="notice">'+rows.length+' items shown · '+allOffers().length+' source offers · prices are not currency-converted</p>'+
       '<div class="table-wrap wide-scroll" id="wide-scroll"><table class="wide-table" id="wide-table">'+
-      '<thead><tr><th scope="col" aria-sort="'+(itemSortActive?(state.wideSortDirection==="asc"?"ascending":"descending"):"none")+'">'+itemSortButton+'</th>'+head+rateHead+wideBreakHeading()+'</tr></thead><tbody>'+
-      (body||'<tr><td colspan="10" class="empty">No matching items</td></tr>')+'</tbody></table></div>'+
-      '<p class="notice">— = item not listed in that shop · "Price unknown" = listing exists but its price could not be read · "for N units" indicates a bundle. "Reported price" flags figures not independently verified in a screenshot. CSV includes separate quantity, VIP requirement, and three currency-specific cost-per-minute columns. Queue speedups only—protective shields and stamina are not speedups. Rate parity is extrapolated from the observed power-law formula (verified only through about 30 hours). Multi-day or multi-year estimates are highly uncertain. Actual diamond rounding may shift the estimated crossover by minutes.</p></section>';
+      '<thead><tr><th scope="col" aria-sort="'+(itemSortActive?(state.wideSortDirection==="asc"?"ascending":"descending"):"none")+'">'+itemSortButton+'</th>'+head+rateHead+wideBreakHeading()+'<th scope="col" title="Crystal-equivalent unit cost: 16 Heat-Resistant Gold, 4 Composite Materials, or 1 Conductive Crystal">Cost per Conductive Crystal</th></tr></thead><tbody>'+
+      (body||'<tr><td colspan="11" class="empty">No matching items</td></tr>')+'</tbody></table></div>'+
+      '<p class="notice">— = item not listed in that shop · "Price unknown" = listing exists but its price could not be read · "for N units" indicates a bundle. "Reported price" flags figures not independently verified in a screenshot. CSV includes separate quantity, VIP requirement, and three currency-specific cost-per-minute columns. Queue speedups only—protective shields and stamina are not speedups. Rate parity is extrapolated from the observed power-law formula (verified only through about 30 hours). Multi-day or multi-year estimates are highly uncertain. Actual diamond rounding may shift the estimated crossover by minutes. Crystal-equivalent prices reflect crafting inputs only and do not assign a cost to crafting time or other requirements.</p></section>';
   }
 
 

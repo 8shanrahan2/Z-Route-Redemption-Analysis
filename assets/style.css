@@ -216,3 +216,13 @@ footer a{text-decoration:none}
 .calc-bad{color:var(--red);font-weight:700}
 @media(max-width:700px){.calc-fields{grid-template-columns:repeat(2,minmax(0,1fr))}
   .calculator-summary{grid-template-columns:1fr}}
+
+/* Conductive Crystal crafting-equivalent price for three material rows. */
+.wide-layout .wide-table{min-width:1910px}
+.wide-table thead th:last-child{min-width:190px;width:206px}
+.wide-crystal-cell{min-width:190px;vertical-align:middle}
+.wide-crystal-entry{display:flex;flex-direction:column;gap:1px;padding:5px 0}
+.wide-crystal-entry+.wide-crystal-entry{border-top:1px dashed var(--edge);margin-top:5px;padding-top:7px}
+.wide-crystal-price{display:inline-flex;align-items:center;gap:6px;color:var(--gold)}
+.wide-crystal-price strong{font-size:15px}
+.wide-crystal-price .currency-icon{flex:0 0 28px}

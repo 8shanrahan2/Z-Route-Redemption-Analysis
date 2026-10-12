@@ -23,6 +23,8 @@ vm.runInNewContext(text("data/shop-data.js"), sandbox, {filename: "shop-data.js"
 const {items, offers, shops} = sandbox.window.ZR_DATA;
 assert.equal(shops.length, 5);
 assert.equal(offers.length, 77);
+assert.equal(items.length, 52); // one native sprite tile per unique item
+assert.deepEqual(Array.from(items.map(item => item.iconIndex)),Array.from({length:52},(_,i)=>i));
 assert.equal(new Set(offers.map(x => x.id)).size, offers.length);
 const knownItems = new Set(items.map(x => x.id));
 for (const o of offers) {
@@ -71,18 +73,22 @@ assert.equal(offers.find(o => o.item === "logs" && o.shop === "Alliance").price,
 vm.runInNewContext(text("assets/app.js"), sandbox, {filename: "app.js"});
 const rendered = () => elements.workspace.innerHTML;
 assert.match(rendered(), /Fighter Parts/);
+assert.match(rendered(), /class="item-icon"/);
 assert.match(rendered(), /500/); // 400 VIP diamonds / 800 honor medals * 1000
 const tab = name => handlers.click({
   target: {closest(selector) { return selector === "[data-tab]" ? {dataset: {tab:name}} : null; }}
 });
 tab("rankings");
 assert.match(rendered(), /Best value by currency/);
+assert.match(rendered(), /class="item-icon"/);
 handlers.change({target:{id:"rank-shop",value:"Honor",dataset:{}}});
 assert.match(rendered(), /Fighter Parts/);
 tab("catalog");
 assert.match(rendered(), /Shop price catalog/);
+assert.match(rendered(), /class="item-icon"/);
 tab("vip");
 assert.match(rendered(), /VIP 11/);
+assert.match(rendered(), /class="item-icon"/);
 tab("data");
 assert.match(rendered(), /Download JSON/);
 console.log("ZR Shop Ledger smoke tests passed.");

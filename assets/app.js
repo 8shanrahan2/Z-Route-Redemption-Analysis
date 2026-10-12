@@ -8,7 +8,7 @@
     tab:"compare", selected:"fighter_part", vip:7, mode:"all", rankShop:"Alliance",
     rates:{Alliance:"",Trial:"",Honor:""}, manual:{},
     changes:{}, additions:[], shop:"All", search:"", category:"All",
-    includeReported:true
+    includeReported:true, wideSearch:"", wideCategory:"All", wideScope:"all"
   };
   let state = {...defaults};
   try {
@@ -201,6 +201,95 @@
       '<div class="currency-display">'+currencyIcon(o.currency)+'<strong>'+fmt(o.price)+'</strong>'+
       '<span class="muted">diamonds</span></div></div></div>').join("")+'</div></div>';
   }
+
+  // A denormalized, screenshot-priced item-by-shop view. Missing price does not mean zero.
+  const wideColumns = [
+    {shop:"Alliance", label:"Alliance coins", currency:"Alliance coins"},
+    {shop:"Diamond", label:"Diamond shop", currency:"Diamonds"},
+    {shop:"VIP", label:"VIP shop", currency:"Diamonds"},
+    {shop:"Trial", label:"Trial medals", currency:"Trial medals"},
+    {shop:"Honor", label:"Honor medals", currency:"Honor medals"}
+  ];
+  const wideGroups = () => {
+    const groups=new Map();
+    for(const o of allOffers()){
+      if(!groups.has(o.item)) groups.set(o.item,new Map());
+      const byShop=groups.get(o.item);
+      if(!byShop.has(o.shop)) byShop.set(o.shop,[]);
+      byShop.get(o.shop).push(o);
+    }
+    return groups;
+  };
+  const wideRows = () => {
+    const groups=wideGroups();
+    return base.items.filter(item=>{
+      const shops=groups.get(item.id);
+      return shops && (!state.wideSearch || (item.name+" "+item.category).toLowerCase().includes(state.wideSearch.trim().toLowerCase())) &&
+        (state.wideCategory==="All" || item.category===state.wideCategory) &&
+        (state.wideScope!=="multi" || shops.size>=2);
+    }).sort((a,b)=>a.name.localeCompare(b.name)).map(item=>({item,shops:groups.get(item.id)}));
+  };
+  const sortedShopOffers = offers => [...(offers||[])].sort((a,b)=>{
+    const aPrice=priceUnit(a), bPrice=priceUnit(b);
+    return (aPrice==null?Infinity:aPrice)-(bPrice==null?Infinity:bPrice);
+  });
+  const widePriceCell = (offers, shop) => {
+    if(!offers?.length) return '<td class="wide-empty" title="No listing observed in the supplied screenshots">—</td>';
+    return '<td>'+sortedShopOffers(offers).map(o=>{
+      const price=o.price==null?'<span class="wide-unavailable">Price unknown</span>':'<span class="wide-amount mono">'+fmt(o.price)+'</span>';
+      const meta=[
+        o.quantity!==1 ? "for "+fmt(o.quantity)+" units" : "",
+        shop==="VIP" && o.minVip!=null ? "VIP "+o.minVip+(o.minVip>state.vip?" · locked":" · unlocked") : "",
+        o.evidence==="reported" ? "reported price" : "",
+        o.evidence==="edited" ? "local edit" : ""
+      ].filter(Boolean);
+      return '<div class="wide-offer" title="'+esc(o.note||o.source)+'">'+price+
+        (meta.length?'<span class="wide-note">'+esc(meta.join(" · "))+'</span>':"")+'</div>';
+    }).join("")+'</td>';
+  };
+  const escapeCsv = value => '"'+String(value??"").replace(/"/g,'""')+'"';
+  function downloadWideCsv(){
+    const head=["Item","Category",...wideColumns.map(c=>c.label+" price"),
+      ...wideColumns.map(c=>c.label+" quantity"),"VIP required"];
+    const lines=[head,...wideRows().map(({item,shops})=>{
+      const byShop=wideColumns.map(c=>sortedShopOffers(shops.get(c.shop)));
+      return [item.name,item.category,
+        ...byShop.map(list=>list.map(o=>o.price??"").join(" | ")),
+        ...byShop.map(list=>list.map(o=>o.quantity).join(" | ")),
+        (byShop[2]||[]).map(o=>o.minVip??"").join(" | ")];
+    })].map(row=>row.map(escapeCsv).join(","));
+    const blob=new Blob(["\uFEFF"+lines.join("\r\n")],{type:"text/csv;charset=utf-8"});
+    const url=URL.createObjectURL(blob),link=document.createElement("a");
+    link.href=url; link.download="z-route-shop-wide-prices.csv";
+    document.body.appendChild(link); link.click();link.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),1000);
+  }
+  function wideTable(){
+    const rows=wideRows();
+    const head=wideColumns.map(c=>'<th scope="col">'+
+      '<div class="wide-heading">'+currencyIcon(c.currency)+'<span>'+esc(c.label)+'</span></div></th>').join("");
+    const body=rows.map(({item,shops})=>
+      '<tr data-wide-item="'+esc(item.id)+'"><th scope="row" class="wide-item-cell">'+
+      '<div class="item-name-wrap">'+itemIcon(item.id)+'<div><button class="linklike" data-select="'+esc(item.id)+'">'+
+      esc(item.name)+'</button><div class="notice">'+esc(item.category)+'</div></div></div></th>'+
+      wideColumns.map(c=>widePriceCell(shops.get(c.shop),c.shop)).join("")+'</tr>').join("");
+    return '<section class="panel"><div class="section-head"><div>'+
+      '<p class="section-kicker">ITEM × SHOP / DENORMALIZED</p><h2>Wide price table</h2></div>'+
+      '<button class="btn ghost" id="wide-download">Download CSV</button></div>'+
+      '<p class="note">Each item appears once, with prices from all five shops in separate columns. Amounts are the listed price for the offered quantity; an empty location means it was not observed, not that it is free. VIP-locked offers remain visible.</p>'+
+      '<div class="filterbar wide-filters">'+
+      '<div class="field"><label for="wide-search">Search items</label><input id="wide-search" placeholder="UR Omni Hero Shard…" value="'+esc(state.wideSearch)+'"></div>'+
+      '<div class="field"><label for="wide-category">Category</label><select id="wide-category">'+
+      selectOptions(["All",...new Set(base.items.map(i=>i.category))],state.wideCategory)+'</select></div>'+
+      '<div class="field"><label for="wide-scope">Show</label><select id="wide-scope">'+
+      selectOptions([{value:"all",label:"All items"},{value:"multi",label:"In 2+ shops"}],state.wideScope)+'</select></div></div>'+
+      '<p class="notice">'+rows.length+' items shown · '+allOffers().length+' source offers · prices are not currency-converted</p>'+
+      '<div class="table-wrap wide-scroll"><table class="wide-table" id="wide-table">'+
+      '<thead><tr><th scope="col">Item</th>'+head+'</tr></thead><tbody>'+
+      (body||'<tr><td colspan="6" class="empty">No matching items</td></tr>')+'</tbody></table></div>'+
+      '<p class="notice">— = item not listed in that shop · "Price unknown" = listing exists but its price could not be read · "for N units" indicates a bundle. "Reported price" flags figures not independently verified in a screenshot. CSV includes separate quantity and VIP requirement columns.</p></section>';
+  }
+
   function catalog(){
     const list=allOffers().filter(o=>{
       const item=itemById(o.item);
@@ -263,7 +352,7 @@
       b.classList.toggle("active",b.dataset.tab===state.tab);
       b.setAttribute("aria-current",b.dataset.tab===state.tab?"page":"false");
     });
-    q("workspace").innerHTML = state.tab==="compare" ? compare() : state.tab==="rankings" ? rankings() : state.tab==="catalog" ? catalog() : state.tab==="vip" ? vip() : dataPage();
+    q("workspace").innerHTML = state.tab==="compare" ? compare() : state.tab==="rankings" ? rankings() : state.tab==="wide" ? wideTable() : state.tab==="catalog" ? catalog() : state.tab==="vip" ? vip() : dataPage();
   }
   document.addEventListener("click", e=>{
     const tab=e.target.closest("[data-tab]");
@@ -281,6 +370,7 @@
       state.changes[o.id]={price:n,evidence:"edited",note:"Locally edited by user; original "+o.source+" price: "+String(base.offers.find(x=>x.id===o.id)?.price??"not visible")};
       save();render();return;
     }
+    if(e.target.id==="wide-download"){downloadWideCsv();return;}
     if(e.target.id==="export"){
       const data={format:"zr-shop-ledger-export",version:1,exported:new Date().toISOString(),customizations:{
         rates:state.rates,manual:state.manual,changes:state.changes,additions:state.additions},base};
@@ -301,6 +391,8 @@
     else if(t.id==="include-reported")state.includeReported=t.value==="yes";
     else if(t.id==="rank-shop")state.rankShop=t.value;
     else if(t.id==="shop-filter")state.shop=t.value;
+    else if(t.id==="wide-category")state.wideCategory=t.value;
+    else if(t.id==="wide-scope")state.wideScope=t.value;
     else if(t.id==="category-filter")state.category=t.value;
     else if(t.id==="manual-anchor"){
       if(t.value==="")delete state.manual[state.selected];
@@ -324,6 +416,11 @@
     save();render();
   });
   document.addEventListener("input",e=>{
+    if(e.target.id==="wide-search"){
+      state.wideSearch=e.target.value;save();
+      const pos=e.target.selectionStart;render();
+      const el=q("wide-search");if(el){el.focus();el.setSelectionRange(pos,pos);}
+    }
     if(e.target.id==="search-field"){state.search=e.target.value;save();
       // Re-render only the data table to keep the search field focused.
       const pos=e.target.selectionStart;

@@ -334,7 +334,7 @@
     return '<td class="wide-break-cell">'+rows.map(({o,first,diamondCost,coverage})=>{
       const modeled=o.currency!=="Diamonds";
       const locked=o.shop==="VIP"&&o.minVip!=null&&o.minVip>state.vip;
-      const label=o.shop+(o.minVip!=null?" VIP "+o.minVip:"");
+      const label=o.shop+(o.minVip!=null?" "+o.minVip:"");
       const tooltip=fmt(o.price)+" "+o.currency+" for "+speedups.formatDuration(coverage)+"; approx. "+fmt(diamondCost)+" diamond equivalents.";
       return '<div class="wide-break-entry" title="'+esc(tooltip)+'"><strong class="mono">'+speedups.formatDuration(first)+'</strong>'+
         '<span class="wide-rate-shop">'+esc(label)+(modeled?" · modeled":"")+(locked?" (locked)":"")+'</span></div>';

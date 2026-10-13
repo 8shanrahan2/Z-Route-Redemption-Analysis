@@ -382,6 +382,7 @@ assert(!rendered().includes('data-research-level="9005"'),"Panel starts collapse
 const toggleResearch=()=>handlers.click({target:{closest(selector){
   return selector==="[data-research-toggle]"?{dataset:{researchToggle:""}}:null;
 }}});
+elements["wide-scroll"]={scrollTop:176,scrollLeft:292};
 toggleResearch();
 assert.match(rendered(), /Points by day — research breakdown/);
 assert.equal((rendered().match(/data-research-level="/g)||[]).length,14);

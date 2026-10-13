@@ -667,18 +667,19 @@
   function render(){
     // Only the wide table needs the full browser width.
     q("app-container")?.classList?.toggle("wide-layout",state.tab==="wide");
-    renderOverview();
     document.querySelectorAll("[data-tab]").forEach(b=>{
       b.classList.toggle("active",b.dataset.tab===state.tab);
       b.setAttribute("aria-current",b.dataset.tab===state.tab?"page":"false");
     });
-    q("workspace").innerHTML = state.tab==="compare" ? compare() : state.tab==="rankings" ? rankings() : state.tab==="wide" ? wideTable() : state.tab==="calculator" ? calculator() : state.tab==="catalog" ? catalog() : state.tab==="vip" ? vip() : dataPage();
+    q("workspace").innerHTML = state.tab==="calculator" ? calculator() : wideTable();
   }
   document.addEventListener("click", e=>{
     const tab=e.target.closest("[data-tab]");
     if(tab){state.tab=tab.dataset.tab;save();render();return;}
     const selected=e.target.closest("[data-select]");
     if(selected){state.selected=selected.dataset.select;state.tab="compare";save();render();window.scrollTo({top:0,behavior:"smooth"});return;}
+    const researchToggle=e.target.closest("[data-research-toggle]");
+    if(researchToggle){state.researchOpen=!state.researchOpen;save();render();return;}
     const sort=e.target.closest("[data-wide-sort]");
     if(sort){
       const key=sort.dataset.wideSort;
@@ -731,6 +732,19 @@
   });
   document.addEventListener("change",async e=>{
     const t=e.target;
+    if(t.dataset?.researchLevel){
+      const id=Number(t.dataset.researchLevel);
+      if(!research?.byId[id])return;
+      const before=q("wide-scroll"),top=before?.scrollTop??0,left=before?.scrollLeft??0;
+      const pageTop=window.scrollY,pageLeft=window.scrollX;
+      state.researchLevels[id]=research.clampLevel(id,t.value);
+      save();render();
+      const after=q("wide-scroll");if(after){after.scrollTop=top;after.scrollLeft=left;}
+      q("research-"+id)?.focus?.({preventScroll:true});
+      if(Number.isFinite(pageTop) && typeof window.scrollTo==="function")
+        window.scrollTo({top:pageTop,left:Number.isFinite(pageLeft)?pageLeft:0,behavior:"instant"});
+      return;
+    }
     if(t.id==="item-select")state.selected=t.value;
     else if(t.id==="mode-select")state.mode=t.value;
     else if(t.id==="vip-select")state.vip=Number(t.value);

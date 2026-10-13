@@ -224,6 +224,28 @@
     }
     return groups;
   };
+  // Day sort keys are 'day<N>-points' or 'day<N>-<currency>'. Higher scores
+  // are better, unlike construction cost/min where lower is better.
+  const competitionSortCurrencies = [
+    {key:"diamonds",currency:"Diamonds",label:"Diamonds"},
+    {key:"alliance",currency:"Alliance coins",label:"Alliance coins"},
+    {key:"trial",currency:"Trial medals",label:"Trial medals"},
+    {key:"honor",currency:"Honor medals",label:"Honor medals"}
+  ];
+  const competitionSort = key => {
+    const match=/^day([1-6])-(points|diamonds|alliance|trial|honor)$/.exec(key);
+    if(!match)return null;
+    return {day:Number(match[1]),kind:match[2]};
+  };
+  const bestDayScore = (item,shops,sort) => {
+    const currency=competitionSortCurrencies.find(c=>c.key===sort.kind)?.currency;
+    const entries=scoredDayOffers(item,shops,sort.day).filter(({o})=>!currency || o.currency===currency);
+    const values=entries.flatMap(({o,points})=>{
+      if(!currency)return [points];
+      return Number(o.price)>0 && Number.isFinite(Number(o.price))?[points/Number(o.price)]:[];
+    });
+    return values.length?Math.max(...values):null;
+  };
   const wideRows = () => {
     const groups=wideGroups();
     const rows=base.items.filter(item=>{
@@ -234,17 +256,20 @@
     }).map(item=>({item,shops:groups.get(item.id)}));
     const sortColumn=rateColumns.find(c=>c.key===state.wideSortKey);
     const sortBreak=state.wideSortKey==="breakEven";
+    const daySort=competitionSort(state.wideSortKey);
     const direction=state.wideSortDirection==="desc" ? -1 : 1;
     rows.sort((a,b)=>{
-      if(sortColumn || sortBreak){
-        const av=sortBreak?lowestBreakEven(a.item,a.shops):lowestMinuteRate(a.item,a.shops,sortColumn);
-        const bv=sortBreak?lowestBreakEven(b.item,b.shops):lowestMinuteRate(b.item,b.shops,sortColumn);
-        // Missing prices and non-speedups sort LAST regardless of direction.
+      if(sortColumn || sortBreak || daySort){
+        const av=daySort?bestDayScore(a.item,a.shops,daySort):
+          sortBreak?lowestBreakEven(a.item,a.shops):lowestMinuteRate(a.item,a.shops,sortColumn);
+        const bv=daySort?bestDayScore(b.item,b.shops,daySort):
+          sortBreak?lowestBreakEven(b.item,b.shops):lowestMinuteRate(b.item,b.shops,sortColumn);
+        // Missing prices, non-scoring items and absent currencies sort LAST in either direction.
         if(av==null && bv!=null)return 1;
         if(bv==null && av!=null)return -1;
         if(av!=null && bv!=null && av!==bv)return (av-bv)*direction;
       }
-      return a.item.name.localeCompare(b.item.name)*((sortColumn||sortBreak)?1:direction);
+      return a.item.name.localeCompare(b.item.name)*((sortColumn||sortBreak||daySort)?1:direction);
     });
     return rows;
   };
@@ -383,12 +408,34 @@
     return fmtMinuteRate(points/Number(o.price))+" points/"+o.currency+" ("+o.shop+
       (o.minVip!=null?", VIP "+o.minVip:"")+", "+points+" pts / "+o.price+" "+o.currency+")";
   }).join(" | ");
-  const competitionHead = () => competitionDays.map(d=>
-    '<th class="wide-day-header" scope="col" title="'+esc(d.name+'; base points per purchased offer used on this day')+'">'+
-    esc('Day '+d.day+' ('+d.weekday+')')+'<span class="wide-day-subheading">Points</span></th>'+
-    '<th class="wide-day-header" scope="col" title="'+esc(d.name+'; stage points per shop currency spent, not converted across currencies')+'">'+
-    esc('Day '+d.day+' ('+d.weekday+')')+'<span class="wide-day-subheading">Points / currency</span></th>'
-  ).join("");
+  const competitionHead = () => competitionDays.map(d=>{
+    const ptsKey="day"+d.day+"-points",ptsActive=state.wideSortKey===ptsKey;
+    const direction=state.wideSortDirection;
+    const pointsHead='<th class="wide-day-header" scope="col" aria-sort="'+
+      (ptsActive?(direction==="asc"?"ascending":"descending"):"none")+'">'+
+      '<button type="button" class="wide-day-points-sort'+(ptsActive?' active':'')+'" '+
+      'data-wide-sort="'+ptsKey+'" title="Sort Day '+d.day+' by highest points per purchased offer" '+
+      'aria-label="Sort Day '+d.day+' by points per offer">'+
+      esc('Day '+d.day+' ('+d.weekday+')')+
+      '<span class="wide-day-subheading">Points <span aria-hidden="true">'+
+      (ptsActive?(direction==="asc"?"↑":"↓"):"↕")+'</span></span></button></th>';
+    const rateButtons=competitionSortCurrencies.map(c=>{
+      const key="day"+d.day+"-"+c.key,active=state.wideSortKey===key;
+      const directionText=active?(direction==="asc"?"ascending":"descending"):"unsorted";
+      return '<button type="button" class="wide-day-currency-sort'+(active?' active':'')+
+        '" data-wide-sort="'+key+'" aria-label="Sort Day '+d.day+' by points per '+esc(c.currency)+
+        '" aria-pressed="'+(active?'true':'false')+'" title="Day '+d.day+
+        ': points per '+esc(c.currency)+' ('+directionText+'). Higher is better.">'+
+        currencyIcon(c.currency)+'<span class="wide-day-sort-arrow" aria-hidden="true">'+
+        (active?(direction==="asc"?"↑":"↓"):"↕")+'</span></button>';
+    }).join("");
+    return pointsHead+'<th class="wide-day-header" scope="col" aria-sort="'+
+      (competitionSort(state.wideSortKey)?.day===d.day&&!ptsActive?
+        (direction==="asc"?"ascending":"descending"):"none")+'">'+
+      esc('Day '+d.day+' ('+d.weekday+')')+
+      '<span class="wide-day-subheading">Points / currency · sort by</span>'+
+      '<div class="wide-day-currency-sorts">'+rateButtons+'</div></th>';
+  }).join("");
   const wideSortHeading = column => {
     const active=state.wideSortKey===column.key;
     const direction=active ? state.wideSortDirection : null;
@@ -482,7 +529,7 @@
     return '<section class="panel"><div class="section-head"><div>'+
       '<p class="section-kicker">ITEM × SHOP / DENORMALIZED</p><h2>Wide price table</h2></div>'+
       '<button class="btn ghost" id="wide-download">Download CSV</button></div>'+
-      '<p class="note">Each item appears once, with prices from all five shops in separate columns. Amounts are the listed price for the offered quantity; an empty location means it was not observed, not that it is free. The three Cost/min columns divide each shop price by the minutes purchased. Click a Cost/min header to sort numerically (lowest first; click again to reverse). Diamond and VIP shop rates share a column and retain their shop labels. Missing rates always sort last; VIP-locked offers remain visible. Instant-rate break-even is the estimated timer length where the instant diamond price per minute declines to the shop speedup rate. Below it, the shop has the cheaper cost/min; above it, instant completion is cheaper per minute. These are rate comparisons, not the diamonds required to finish one short queue. Non-diamond shops require your subjective diamond-equivalent values from Compare value. The Cost per Conductive Crystal column calculates the price of one crystal from 16 Heat-Resistant Gold, 4 Composite Materials, or 1 direct crystal; prices remain in their original shop currencies and use per-unit pricing for bundles. <strong>Alliance Competition:</strong> Six days each show base points awarded when an offer\'s item is actually used in an eligible event action, plus points per original shop currency spent (multiple offers retain separate labels and icons). The six days are alternatives for a single-use item, not scores that can be summed. Speedups earn 55 points per minute on eligible days; any leftover timer minutes and research point buffs are excluded. Unquantifiable items display a dash. <a href="https://zrouteguide.com/events/alliance-competition/event-guide/" target="_blank" rel="noopener">Scoring source ↗</a>.</p>'+
+      '<p class="note">Each item appears once, with prices from all five shops in separate columns. Amounts are the listed price for the offered quantity; an empty location means it was not observed, not that it is free. The three Cost/min columns divide each shop price by the minutes purchased. Click a Cost/min header to sort numerically (lowest first; click again to reverse). Diamond and VIP shop rates share a column and retain their shop labels. Missing rates always sort last; VIP-locked offers remain visible. Instant-rate break-even is the estimated timer length where the instant diamond price per minute declines to the shop speedup rate. Below it, the shop has the cheaper cost/min; above it, instant completion is cheaper per minute. These are rate comparisons, not the diamonds required to finish one short queue. Non-diamond shops require your subjective diamond-equivalent values from Compare value. The Cost per Conductive Crystal column calculates the price of one crystal from 16 Heat-Resistant Gold, 4 Composite Materials, or 1 direct crystal; prices remain in their original shop currencies and use per-unit pricing for bundles. <strong>Alliance Competition:</strong> Six days each show base points awarded when an offer\'s item is actually used in an eligible event action, plus points per original shop currency spent (multiple offers retain separate labels and icons). The six days are alternatives for a single-use item, not scores that can be summed. Use each day\'s Points header to sort by raw points or choose a currency icon in the Points / currency header to sort by that currency\'s best unrounded offer ratio (highest first; click again to reverse). Missing prices and ineligible items sort last, and all currencies stay displayed. Speedups earn 55 points per minute on eligible days; any leftover timer minutes and research point buffs are excluded. Unquantifiable items display a dash. <a href="https://zrouteguide.com/events/alliance-competition/event-guide/" target="_blank" rel="noopener">Scoring source ↗</a>.</p>'+
       '<div class="filterbar wide-filters">'+
       '<div class="field"><label for="wide-search">Search items</label><input id="wide-search" placeholder="UR Omni Hero Shard…" value="'+esc(state.wideSearch)+'"></div>'+
       '<div class="field"><label for="wide-category">Category</label><select id="wide-category">'+
@@ -625,7 +672,7 @@
     const sort=e.target.closest("[data-wide-sort]");
     if(sort){
       const key=sort.dataset.wideSort;
-      if(key==="item" || key==="breakEven" || rateColumns.some(c=>c.key===key)){
+      if(key==="item" || key==="breakEven" || rateColumns.some(c=>c.key===key) || competitionSort(key)){
         // Sorting re-creates the table; retain its horizontal and vertical position.
         const previous=q("wide-scroll");
         const top=previous?.scrollTop ?? 0;
@@ -633,7 +680,7 @@
         const pageTop=window.scrollY;
         const pageLeft=window.scrollX;
         if(state.wideSortKey===key)state.wideSortDirection=state.wideSortDirection==="asc"?"desc":"asc";
-        else {state.wideSortKey=key;state.wideSortDirection="asc";}
+        else {state.wideSortKey=key;state.wideSortDirection=competitionSort(key)?"desc":"asc";}
         save();render();
         const current=q("wide-scroll");
         if(current){

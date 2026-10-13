@@ -1,6 +1,6 @@
 /* Alliance Competition base scoring, community-sourced: https://zrouteguide.com/events/alliance-competition/event-guide/
  * Points are earned on qualifying USE / OPEN actions, not from purchasing a shop offer.
- * Event research bonuses, unfinished timer wastage and unrelated secondary actions are excluded.
+ * Scoring here is unbuffed; known client research bonuses are applied separately in the UI.
  * Days are Monday (1) through Saturday (6). A single purchased item cannot be spent on multiple days.
  */
 window.ZR_ALLIANCE_COMPETITION = (() => {
@@ -22,7 +22,7 @@ window.ZR_ALLIANCE_COMPETITION = (() => {
     blue_ticket:{2:{points:1600,task:"Recruit 1 Survivor"}},
     fighter_chest_1:{3:{points:1155,task:"Open 1 Lv.1 Fighter Component Chest"}},
     fighter_chest_3:{3:{points:10500,task:"Open 1 Lv.3 Fighter Component Chest"}},
-    gold_ticket:{4:{points:1600,task:"Recruit 1 Hero"}},
+    gold_ticket:{4:{points:1600,task:"Recruit 1 Hero",kind:"hero_recruit"}},
     hero_gold:{4:{points:10500,task:"Use 1 UR Hero Shard"}},
     purple_puzzle:{4:{points:3600,task:"Use 1 SSR Hero Shard"}},
     blue_puzzle:{4:{points:1050,task:"Use 1 SR Hero Shard"}},
@@ -43,10 +43,11 @@ window.ZR_ALLIANCE_COMPETITION = (() => {
     if(Number.isFinite(item.speedupMinutes) && item.speedupMinutes>0){
       const type=speedupType(item.id);
       if(!(speedupDayTypes[day]||[]).includes(type))return null;
-      return {points:item.speedupMinutes*55,
+      return {kind:"speedup",points:item.speedupMinutes*55,
         task:"Use "+item.speedupMinutes+" minutes of "+(type==="generic"?"eligible queue":type)+" speedup (55 points/min)"};
     }
-    return actions[item.id]?.[day] ?? null;
+    const action=actions[item.id]?.[day] ?? null;
+    return action ? {kind:"other",...action} : null;
   };
   const scoreForOffer = (item,offer,day) => {
     const rule=scorePerItem(item,day);

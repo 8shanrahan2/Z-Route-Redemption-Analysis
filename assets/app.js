@@ -7,8 +7,9 @@
   const speedups = window.ZR_SPEEDUPS;
   const competition = window.ZR_ALLIANCE_COMPETITION;
   const competitionDays = competition?.days ?? [];
+  const research = window.ZR_ALLIANCE_RESEARCH;
   const defaults = {
-    tab:"compare", selected:"fighter_part", vip:7, mode:"all", rankShop:"Alliance",
+    tab:"wide", researchLevels:{}, researchOpen:false, selected:"fighter_part", vip:7, mode:"all", rankShop:"Alliance",
     rates:{Alliance:"",Trial:"",Honor:""}, manual:{},
     changes:{}, additions:[], shop:"All", search:"", category:"All",
     includeReported:true, wideSearch:"", wideCategory:"All", wideScope:"all", wideSortKey:"item", wideSortDirection:"asc",
@@ -19,7 +20,9 @@
     const stored = JSON.parse(localStorage.getItem(storageKey)||"{}");
     state = {...defaults,...stored,rates:{...defaults.rates,...(stored.rates||{})},
       manual:stored.manual||{},changes:stored.changes||{},
-      additions:Array.isArray(stored.additions)?stored.additions:[]};
+      additions:Array.isArray(stored.additions)?stored.additions:[],
+      researchLevels:stored.researchLevels&&typeof stored.researchLevels==="object"?stored.researchLevels:{}};
+    if(state.tab!=="wide" && state.tab!=="calculator")state.tab="wide";
   } catch(e) {}
   const q = id => document.getElementById(id);
   const esc = value => String(value == null ? "" : value).replace(/[&<>"']/g,
@@ -89,15 +92,6 @@
     const id=typeof o==="string"?o:o.value, name=typeof o==="string"?o:o.label;
     return '<option value="'+esc(id)+'"'+(String(id)===String(selected)?" selected":"")+'>'+esc(name)+'</option>';
   }).join("");
-  function renderOverview(){
-    const offers=allOffers();
-    q("overview").innerHTML = [
-      ["5","Shops tracked","3 different non-diamond currencies"],
-      [String(offers.length),"Shop offers","Including reported/hidden prices"],
-      [String(new Set(offers.map(o=>o.item)).size),"Unique items","Some icon names provisional"],
-      ["4","Confirmed VIP gates","VIP 8 · 9 · 10 · 11"]
-    ].map(x=>'<div class="stat"><div class="label">'+x[1]+'</div><div class="num">'+x[0]+'</div><div class="detail">'+x[2]+'</div></div>').join("");
-  }
   function compare(){
     const item=itemById(state.selected), benchmark=anchor(item.id);
     const relevant=allOffers().filter(o=>o.item===item.id && (state.includeReported || o.evidence!=="reported"));
@@ -369,29 +363,45 @@
   const competitionOffers = shops => wideColumns.flatMap(({shop})=>sortedShopOffers(shops.get(shop)));
   const scoredDayOffers = (item,shops,day) => competitionOffers(shops).flatMap(o=>{
     const score=competition?.scoreForOffer(item,o,day);
-    return score ? [{o,points:score.points,task:score.task}] : [];
+    if(!score)return [];
+    const modeled=research?.model(score,state.researchLevels);
+    return [{o,points:modeled?.total ?? score.points,basePoints:score.points,task:score.task,
+      bonus:modeled?.bonus??0,buffs:modeled?.active??[],unknown:modeled?.unknown??[]}];
   });
   const wideDayPointsCell = (item,shops,day) => {
     const entries=scoredDayOffers(item,shops,day);
     if(!entries.length)return '<td class="wide-empty" title="No directly quantifiable action for this item on this stage">—</td>';
     const distinct=[...new Set(entries.map(e=>e.points))];
     const task=entries[0].task;
-    if(distinct.length===1)return '<td class="wide-day-points-cell" title="'+esc(task+'; points on use, per purchased offer')+'"><strong class="mono">'+fmt(distinct[0])+'</strong></td>';
-    return '<td class="wide-day-points-cell" title="'+esc(task)+'">'+entries.map(({o,points})=>
-      '<div class="wide-day-entry"><strong class="mono">'+fmt(points)+'</strong>'+
-      '<span class="wide-rate-shop">'+esc(o.shop+' · '+fmt(o.quantity)+' items')+'</span></div>').join("")+'</td>';
+    const details=e=>e.buffs.map(b=>b.name+' Lv.'+b.level+' +'+fmt(b.percent*100)+'%').join(', ')+
+      (e.unknown.length?' · Some selected tech effects unavailable':'');
+    if(distinct.length===1){
+      const e=entries[0];
+      return '<td class="wide-day-points-cell'+(e.bonus>0?' research-boosted':'')+
+        '" title="'+esc(task+(e.bonus>0?' · '+details(e):'')+'; points on use, per purchased offer')+'">'+
+        '<strong class="mono">'+fmt(e.points)+'</strong>'+
+        (e.bonus>0?'<span class="research-bonus">+'+fmt(e.bonus)+' pts · base '+fmt(e.basePoints)+'</span>':'')+
+        '</td>';
+    }
+    return '<td class="wide-day-points-cell">'+entries.map(e=>
+      '<div class="wide-day-entry" title="'+esc(task+' · '+details(e))+'"><strong class="mono">'+fmt(e.points)+'</strong>'+
+      (e.bonus>0?'<span class="research-bonus">+'+fmt(e.bonus)+' pts</span>':'')+
+      '<span class="wide-rate-shop">'+esc(e.o.shop+' · '+fmt(e.o.quantity)+' items')+'</span></div>').join("")+'</td>';
   };
   const wideDayRatesCell = (item,shops,day) => {
     const entries=scoredDayOffers(item,shops,day);
     if(!entries.length)return '<td class="wide-empty" title="No directly quantifiable action for this item on this stage">—</td>';
-    return '<td class="wide-day-rates-cell">'+entries.map(({o,points})=>{
+    return '<td class="wide-day-rates-cell">'+entries.map(({o,points,bonus,buffs,unknown})=>{
       if(o.price==null)return '<div class="wide-day-entry"><span class="wide-unavailable">Price unknown</span><span class="wide-rate-shop">'+esc(o.shop)+'</span></div>';
       if(!(Number(o.price)>0))return '<div class="wide-day-entry"><span class="wide-unavailable">Free / no ratio</span><span class="wide-rate-shop">'+esc(o.shop)+'</span></div>';
       const locked=o.shop==="VIP" && o.minVip!=null && o.minVip>state.vip;
       const title=fmt(points)+" points / "+fmt(o.price)+" "+o.currency+" = "+fmtMinuteRate(points/Number(o.price))+" points per "+o.currency+
-        " · "+o.shop+" · awarded on use";
-      return '<div class="wide-day-entry" title="'+esc(title)+'"><div class="wide-day-ratio">'+
+        " · "+o.shop+" · awarded on use"+
+        (bonus>0?" · Research: "+buffs.map(b=>b.name+" +"+fmt(b.percent*100)+"%").join(", "):"")+
+        (unknown.length?" · Additional tech bonus unverified":"");
+      return '<div class="wide-day-entry'+(bonus>0?' research-boosted':'')+'" title="'+esc(title)+'"><div class="wide-day-ratio">'+
         '<strong class="mono">'+fmtMinuteRate(points/Number(o.price))+'</strong>'+currencyIcon(o.currency)+'</div>'+
+        (bonus>0?'<span class="research-bonus">+'+fmtMinuteRate(bonus/Number(o.price))+' pts / currency</span>':'')+
         '<span class="wide-rate-shop">'+esc(o.shop+(o.minVip!=null?' VIP '+o.minVip:'')+(locked?' (locked)':'')+
           (o.evidence==='reported'?' (reported)':o.evidence==='edited'?' (edited)':''))+'</span></div>';
     }).join("")+'</td>';
@@ -399,14 +409,14 @@
   const normalizedDayPointsCsv = (item,shops,day) => {
     const entries=scoredDayOffers(item,shops,day);
     if(!entries.length)return "";
-    if(new Set(entries.map(e=>e.points)).size===1)return String(entries[0].points);
-    return entries.map(({o,points})=>points+" ("+o.shop+", "+o.quantity+" items)").join(" | ");
+    if(new Set(entries.map(e=>e.points)).size===1)return String(entries[0].points)+(entries[0].bonus>0?" (base "+entries[0].basePoints+" + research "+entries[0].bonus+")":"");
+    return entries.map(({o,points,basePoints,bonus})=>points+" ("+o.shop+", "+o.quantity+" items"+(bonus>0?", base "+basePoints+" + research "+bonus:"")+")").join(" | ");
   };
-  const normalizedDayRatesCsv = (item,shops,day) => scoredDayOffers(item,shops,day).map(({o,points})=>{
+  const normalizedDayRatesCsv = (item,shops,day) => scoredDayOffers(item,shops,day).map(({o,points,bonus})=>{
     if(o.price==null)return "Price unknown ("+o.shop+")";
     if(!(Number(o.price)>0))return "Free / no ratio ("+o.shop+")";
     return fmtMinuteRate(points/Number(o.price))+" points/"+o.currency+" ("+o.shop+
-      (o.minVip!=null?", VIP "+o.minVip:"")+", "+points+" pts / "+o.price+" "+o.currency+")";
+      (o.minVip!=null?", VIP "+o.minVip:"")+", "+points+" pts / "+o.price+" "+o.currency+(bonus>0?", includes +"+bonus+" research points":"")+")";
   }).join(" | ");
   const competitionHead = () => competitionDays.map(d=>{
     const ptsKey="day"+d.day+"-points",ptsActive=state.wideSortKey===ptsKey;
@@ -521,15 +531,16 @@
       '<div class="wide-heading">'+currencyIcon(c.currency)+'<span>'+esc(c.label)+'</span></div></th>').join("");
     const body=rows.map(({item,shops})=>
       '<tr data-wide-item="'+esc(item.id)+'"><th scope="row" class="wide-item-cell">'+
-      '<div class="item-name-wrap">'+itemIcon(item.id)+'<div><button class="linklike" data-select="'+esc(item.id)+'">'+
-      esc(item.name)+'</button><div class="notice">'+esc(item.category)+'</div></div></div></th>'+
+      '<div class="item-name-wrap">'+itemIcon(item.id)+'<div><strong class="wide-item-label">'+
+      esc(item.name)+'</strong><div class="notice">'+esc(item.category)+'</div></div></div></th>'+
       wideColumns.map(c=>widePriceCell(shops.get(c.shop),c.shop)).join("")+
       rateColumns.map(c=>wideMinuteCell(item,shops,c)).join("")+wideBreakCell(item,shops)+wideCrystalCell(item,shops)+
       competitionDays.map(d=>wideDayPointsCell(item,shops,d.day)+wideDayRatesCell(item,shops,d.day)).join("")+'</tr>').join("");
     return '<section class="panel"><div class="section-head"><div>'+
       '<p class="section-kicker">ITEM × SHOP / DENORMALIZED</p><h2>Wide price table</h2></div>'+
       '<button class="btn ghost" id="wide-download">Download CSV</button></div>'+
-      '<p class="note">Each item appears once, with prices from all five shops in separate columns. Amounts are the listed price for the offered quantity; an empty location means it was not observed, not that it is free. The three Cost/min columns divide each shop price by the minutes purchased. Click a Cost/min header to sort numerically (lowest first; click again to reverse). Diamond and VIP shop rates share a column and retain their shop labels. Missing rates always sort last; VIP-locked offers remain visible. Instant-rate break-even is the estimated timer length where the instant diamond price per minute declines to the shop speedup rate. Below it, the shop has the cheaper cost/min; above it, instant completion is cheaper per minute. These are rate comparisons, not the diamonds required to finish one short queue. Non-diamond shops require your subjective diamond-equivalent values from Compare value. The Cost per Conductive Crystal column calculates the price of one crystal from 16 Heat-Resistant Gold, 4 Composite Materials, or 1 direct crystal; prices remain in their original shop currencies and use per-unit pricing for bundles. <strong>Alliance Competition:</strong> Six days each show base points awarded when an offer\'s item is actually used in an eligible event action, plus points per original shop currency spent (multiple offers retain separate labels and icons). The six days are alternatives for a single-use item, not scores that can be summed. Use each day\'s Points header to sort by raw points or choose a currency icon in the Points / currency header to sort by that currency\'s best unrounded offer ratio (highest first; click again to reverse). Missing prices and ineligible items sort last, and all currencies stay displayed. Speedups earn 55 points per minute on eligible days; any leftover timer minutes and research point buffs are excluded. Unquantifiable items display a dash. <a href="https://zrouteguide.com/events/alliance-competition/event-guide/" target="_blank" rel="noopener">Scoring source ↗</a>.</p>'+
+      '<p class="note">Each item appears once, with prices from all five shops in separate columns. Amounts are the listed price for the offered quantity; an empty location means it was not observed, not that it is free. The three Cost/min columns divide each shop price by the minutes purchased. Click a Cost/min header to sort numerically (lowest first; click again to reverse). Diamond and VIP shop rates share a column and retain their shop labels. Missing rates always sort last; VIP-locked offers remain visible. Instant-rate break-even is the estimated timer length where the instant diamond price per minute declines to the shop speedup rate. Below it, the shop has the cheaper cost/min; above it, instant completion is cheaper per minute. These are rate comparisons, not the diamonds required to finish one short queue. Non-diamond instant-rate comparisons require any previously saved personal currency-equivalent settings. The Cost per Conductive Crystal column calculates the price of one crystal from 16 Heat-Resistant Gold, 4 Composite Materials, or 1 direct crystal; prices remain in their original shop currencies and use per-unit pricing for bundles. <strong>Alliance Competition:</strong> Six days each show base points awarded when an offer\'s item is actually used in an eligible event action, plus points per original shop currency spent (multiple offers retain separate labels and icons). The six days are alternatives for a single-use item, not scores that can be summed. Use each day\'s Points header to sort by raw points or choose a currency icon in the Points / currency header to sort by that currency\'s best unrounded offer ratio (highest first; click again to reverse). Missing prices and ineligible items sort last, and all currencies stay displayed. Speedups earn 55 points per minute on eligible days; any leftover timer minutes and configured research buffs are applied to points and currency ratios. Unquantifiable items display a dash. <a href="https://zrouteguide.com/events/alliance-competition/event-guide/" target="_blank" rel="noopener">Scoring source ↗</a>.</p>'+
+      window.ZR_RESEARCH_PANEL.render({state,base,competition,research,fmt,esc,selectOptions})+
       '<div class="filterbar wide-filters">'+
       '<div class="field"><label for="wide-search">Search items</label><input id="wide-search" placeholder="UR Omni Hero Shard…" value="'+esc(state.wideSearch)+'"></div>'+
       '<div class="field"><label for="wide-category">Category</label><select id="wide-category">'+
@@ -540,7 +551,7 @@
       '<div class="table-wrap wide-scroll" id="wide-scroll"><table class="wide-table" id="wide-table">'+
       '<thead><tr><th scope="col" aria-sort="'+(itemSortActive?(state.wideSortDirection==="asc"?"ascending":"descending"):"none")+'">'+itemSortButton+'</th>'+head+rateHead+wideBreakHeading()+'<th scope="col" class="wide-crystal-heading" title="Crystal-equivalent unit cost: 16 Heat-Resistant Gold, 4 Composite Materials, or 1 Conductive Crystal">Cost per Conductive Crystal</th>'+dayHead+'</tr></thead><tbody>'+
       (body||'<tr><td colspan="23" class="empty">No matching items</td></tr>')+'</tbody></table></div>'+
-      '<p class="notice">— = item not listed in that shop · "Price unknown" = listing exists but its price could not be read · "for N units" indicates a bundle. "Reported price" flags figures not independently verified in a screenshot. CSV includes separate quantity, VIP requirement, and three currency-specific cost-per-minute columns. Queue speedups only—protective shields and stamina are not speedups. Rate parity is extrapolated from the observed power-law formula (verified only through about 30 hours). Multi-day or multi-year estimates are highly uncertain. Actual diamond rounding may shift the estimated crossover by minutes. Crystal-equivalent prices reflect crafting inputs only and do not assign a cost to crafting time or other requirements. Alliance Competition rates use each offer\'s entire purchased quantity and price; diamond and VIP offers are separate entries in the same currency. Scores are based on the community guide and require using the item on the specified day. Buffs, special actions, variable Hero EXP chest rewards, and points from future construction/research completion are not automatically credited. The CSV includes all twelve day-specific fields.</p></section>';
+      '<p class="notice">— = item not listed in that shop · "Price unknown" = listing exists but its price could not be read · "for N units" indicates a bundle. "Reported price" flags figures not independently verified in a screenshot. CSV includes separate quantity, VIP requirement, and three currency-specific cost-per-minute columns. Queue speedups only—protective shields and stamina are not speedups. Rate parity is extrapolated from the observed power-law formula (verified only through about 30 hours). Multi-day or multi-year estimates are highly uncertain. Actual diamond rounding may shift the estimated crossover by minutes. Crystal-equivalent prices reflect crafting inputs only and do not assign a cost to crafting time or other requirements. Alliance Competition rates use each offer\'s entire purchased quantity and price; diamond and VIP offers are separate entries in the same currency. Scores are based on the community guide and require using the item on the specified day. Known configured tech bonuses are included; unknown tech effects, special actions, variable Hero EXP chest rewards, and points from future construction/research completion are not included. The CSV includes all twelve day-specific fields.</p></section>';
   }
 
 
@@ -657,18 +668,28 @@
   function render(){
     // Only the wide table needs the full browser width.
     q("app-container")?.classList?.toggle("wide-layout",state.tab==="wide");
-    renderOverview();
     document.querySelectorAll("[data-tab]").forEach(b=>{
       b.classList.toggle("active",b.dataset.tab===state.tab);
       b.setAttribute("aria-current",b.dataset.tab===state.tab?"page":"false");
     });
-    q("workspace").innerHTML = state.tab==="compare" ? compare() : state.tab==="rankings" ? rankings() : state.tab==="wide" ? wideTable() : state.tab==="calculator" ? calculator() : state.tab==="catalog" ? catalog() : state.tab==="vip" ? vip() : dataPage();
+    q("workspace").innerHTML = state.tab==="calculator" ? calculator() : wideTable();
   }
   document.addEventListener("click", e=>{
     const tab=e.target.closest("[data-tab]");
     if(tab){state.tab=tab.dataset.tab;save();render();return;}
     const selected=e.target.closest("[data-select]");
     if(selected){state.selected=selected.dataset.select;state.tab="compare";save();render();window.scrollTo({top:0,behavior:"smooth"});return;}
+    const researchToggle=e.target.closest("[data-research-toggle]");
+    if(researchToggle){
+      const before=q("wide-scroll"),top=before?.scrollTop??0,left=before?.scrollLeft??0;
+      const pageTop=window.scrollY,pageLeft=window.scrollX;
+      state.researchOpen=!state.researchOpen;save();render();
+      const after=q("wide-scroll");if(after){after.scrollTop=top;after.scrollLeft=left;}
+      q("wide-table")?.querySelector?.("[data-research-toggle]")?.focus?.({preventScroll:true});
+      if(Number.isFinite(pageTop) && typeof window.scrollTo==="function")
+        window.scrollTo({top:pageTop,left:Number.isFinite(pageLeft)?pageLeft:0,behavior:"instant"});
+      return;
+    }
     const sort=e.target.closest("[data-wide-sort]");
     if(sort){
       const key=sort.dataset.wideSort;
@@ -721,6 +742,19 @@
   });
   document.addEventListener("change",async e=>{
     const t=e.target;
+    if(t.dataset?.researchLevel){
+      const id=Number(t.dataset.researchLevel);
+      if(!research?.byId[id])return;
+      const before=q("wide-scroll"),top=before?.scrollTop??0,left=before?.scrollLeft??0;
+      const pageTop=window.scrollY,pageLeft=window.scrollX;
+      state.researchLevels[id]=research.clampLevel(id,t.value);
+      save();render();
+      const after=q("wide-scroll");if(after){after.scrollTop=top;after.scrollLeft=left;}
+      q("research-"+id)?.focus?.({preventScroll:true});
+      if(Number.isFinite(pageTop) && typeof window.scrollTo==="function")
+        window.scrollTo({top:pageTop,left:Number.isFinite(pageLeft)?pageLeft:0,behavior:"instant"});
+      return;
+    }
     if(t.id==="item-select")state.selected=t.value;
     else if(t.id==="mode-select")state.mode=t.value;
     else if(t.id==="vip-select")state.vip=Number(t.value);

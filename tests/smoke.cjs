@@ -115,6 +115,17 @@ assert.equal(score("blue_puzzle",4),1050);
 assert.equal(score("blue_skill_book",4),12);
 assert.equal(score("xp_chest_blue",4),null); // scaling contents: don't invent a fixed score
 assert.equal(score("shield_8h",6),null);
+vm.runInNewContext(text("data/alliance-research.js"), sandbox, {filename: "alliance-research.js"});
+const research = sandbox.window.ZR_ALLIANCE_RESEARCH;
+assert.equal(research.techs.length,14);
+assert.equal(research.percent(9005,{9005:2}),0.1,"Points Buff level 2 is +10%");
+assert.equal(research.percent(9002,{9002:2}),0.1);
+assert.equal(research.percent(9014,{9014:2}),null,"No invented numeric buff for late tech");
+assert.equal(research.model(event.scorePerItem(official.speed_5m,2),{9005:2}).total,302.5);
+assert.equal(research.model(event.scorePerItem(official.speed_5m,2),{9005:2,9002:2}).total,330);
+assert.equal(research.model(event.scorePerItem(official.gold_ticket,4),{9005:2,9003:2}).total,1920);
+assert.equal(research.model(event.scorePerItem(official.blue_ticket,2),{9005:2,9003:2}).total,1760);
+vm.runInNewContext(text("assets/research-panel.js"), sandbox, {filename: "research-panel.js"});
 vm.runInNewContext(text("assets/speedup-math.js"), sandbox, {filename: "speedup-math.js"});
 const math = sandbox.window.ZR_SPEEDUPS;
 for(const [sec,price] of [[5527,265],[6975,327],[21361,894],[73466,2717],[109395,3888],[35586,1415]]){
@@ -135,7 +146,12 @@ const rendered = () => elements.workspace.innerHTML;
 assert.match(rendered(), /Fighter Parts/);
 assert.match(rendered(), /class="item-icon"/);
 assert.match(rendered(), /class="currency-icon"/);
-assert.match(rendered(), /500/); // 400 VIP diamonds / 800 honor medals * 1000
+assert.match(rendered(), /Wide price table/);
+assert.match(rendered(), /Alliance Competition research/);
+assert(!rendered().includes("Shops tracked"),"Removed overview cards");
+const site=text("index.html");
+assert.equal((site.match(/data-tab=/g)||[]).length,2,"Only two visible tool tabs");
+assert(!site.includes('id="overview"'),"Remove overview block");
 const tab = name => handlers.click({
   target: {closest(selector) { return selector === "[data-tab]" ? {dataset: {tab:name}} : null; }}
 });
@@ -150,12 +166,8 @@ assert.match(elements["calc-live"].innerHTML, /1,415/);
 handlers.change({target:{id:"calc-queue",value:"train",dataset:{}}});
 assert.match(rendered(), /5-min Speedup/);
 assert.match(rendered(), /1,415/);
-tab("rankings");
-assert.match(rendered(), /Best value by currency/);
-assert.match(rendered(), /<th>Currency<\/th>/);
-assert.match(rendered(), /class="item-icon"/);
-handlers.change({target:{id:"rank-shop",value:"Honor",dataset:{}}});
-assert.match(rendered(), /Fighter Parts/);
+tab("wide");
+assert.match(rendered(), /Wide price table/);
 const wideClasses=new Set();
 elements["app-container"]={classList:{toggle(name,enabled){
   if(enabled)wideClasses.add(name); else wideClasses.delete(name);
@@ -364,24 +376,50 @@ sandbox.window.prompt=()=> "10";
 handlers.click({target:{closest(selector){return selector==="[data-edit]"?{dataset:{edit:vipFive.id}}:null;}}});
 assert(dayPoints("speed_5m",2).includes(">275</strong>"));
 assert(dayRates("speed_5m",2).includes(">27.5</strong>"),"275 points / 10 edited diamonds");
-tab("catalog");
-assert(!wideClasses.has("wide-layout"),"Other tabs should use the narrower reading layout");
-assert.match(rendered(), /Shop price catalog/);
-assert.match(rendered(), /class="item-icon"/);
-assert.match(rendered(), /VIP level-gated offers/);
-assert.match(rendered(), /<th>VIP required<\/th>/);
-for (const [level,price] of [[8,192],[9,64],[10,480],[11,300]]) {
-  assert.match(rendered(), new RegExp("Requires VIP "+level));
-  assert.match(rendered(), new RegExp("VIP "+level));
-}
-assert.equal((rendered().match(/class="catalog-vip-offer"/g)||[]).length,4);
-for (const currency of ["Diamonds","Alliance coins","Trial medals","Honor medals"]) {
-  assert(rendered().includes('aria-label="'+currency+'"'),"No icon for "+currency);
-}
-assert.match(rendered(), /<th>Currency<\/th>/);
-tab("vip");
-assert.match(rendered(), /VIP 11/);
-assert.match(rendered(), /class="item-icon"/);
-tab("data");
-assert.match(rendered(), /Download JSON/);
+// Open the research panel and edit levels. All day values, point/currency sorting,
+// day-by-day model and persistence must update, with green highlighted bonus deltas.
+assert(!rendered().includes('data-research-level="9005"'),"Panel starts collapsed");
+const toggleResearch=()=>handlers.click({target:{closest(selector){
+  return selector==="[data-research-toggle]"?{dataset:{researchToggle:""}}:null;
+}}});
+elements["wide-scroll"]={scrollTop:176,scrollLeft:292};
+toggleResearch();
+assert.match(rendered(), /Points by day — research breakdown/);
+assert.equal((rendered().match(/data-research-level="/g)||[]).length,14);
+for(let day=1;day<=6;day++)assert(rendered().includes('DAY '+day+' / '));
+const editResearch=(id,level)=>handlers.change({target:{id:"research-"+id,value:String(level),dataset:{researchLevel:String(id)}}});
+editResearch(9005,2);
+assert.match(rendered(), /Current \+10%/);
+assert(dayPoints("speed_5m",2).includes(">302.5</strong>"));
+assert(dayPoints("speed_5m",2).includes("+27.5 pts"));
+assert(dayRates("speed_5m",2).includes(">30.25</strong>") &&
+       dayRates("speed_5m",2).includes(">4.033</strong>"),
+       "General buff changes both edited VIP and Alliance ratios");
+assert(dayPoints("hero_gold",4).includes(">11,550</strong>"),"General buff affects hero shards");
+assert.match(rendered(), /research-boosted/);
+assert.match(rendered(), /research-bonus/);
+editResearch(9002,2);
+assert(dayPoints("speed_5m",2).includes(">330</strong>"),"Stack 10% general and 10% speedup");
+assert(dayRates("speed_5m",2).includes(">33</strong>"),"VIP edited 10 diamonds with total 330 points");
+assert(dayPoints("hero_gold",4).includes(">11,550</strong>"),"Speedup buff does not affect shards");
+editResearch(9003,2);
+assert(dayPoints("gold_ticket",4).includes(">1,920</strong>"),"Recruitment buff applies to hero tickets");
+assert(dayPoints("blue_ticket",2).includes(">1,760</strong>"),"Recruitment buff excludes survivor tickets");
+editResearch(9014,2);
+assert(dayPoints("speed_5m",2).includes(">330</strong>"),"Unverified later buff excluded");
+assert(rendered().includes("Unverified · excluded from calculations"));
+assert.equal(JSON.parse(saved["zr-shop-ledger-v1"]).researchLevels[9005],2);
+assert.equal(JSON.parse(saved["zr-shop-ledger-v1"]).researchLevels[9002],2);
+assert.equal(elements["wide-scroll"].scrollTop,176);
+assert.equal(elements["wide-scroll"].scrollLeft,292);
+assert.equal(lastPageScroll.top,685);
+clickSort("day2-alliance");
+assert(rendered().includes('aria-sort="descending"'),"Buffed ratios remain sortable");
+toggleResearch();
+assert(!rendered().includes('data-research-level="9005"'),"Research panel collapses");
+tab("calculator");
+assert(!wideClasses.has("wide-layout"),"Calculator uses ordinary layout");
+assert.match(rendered(), /Diamond speedup calculator/);
+tab("wide");
+assert(wideClasses.has("wide-layout"));
 console.log("ZR Shop Ledger smoke tests passed.");

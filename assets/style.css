@@ -251,3 +251,42 @@ footer a{text-decoration:none}
 .wide-day-currency-sort.active{background:#3e443a;border-color:var(--gold);color:var(--gold)}
 .wide-day-currency-sort .currency-icon{flex:0 0 28px}
 .wide-day-sort-arrow{font-size:11px}
+
+/* Compact two-tool layout: wide grid first, optional Alliance Competition tech settings. */
+.tabs{justify-content:flex-start}
+.research-settings{margin:17px 0 20px;border:1px solid var(--edge);border-radius:14px;background:#152830;overflow:hidden}
+.research-toggle{display:flex;justify-content:space-between;align-items:center;gap:20px;width:100%;border:0;padding:16px 20px;background:#203741;color:var(--text);text-align:left}
+.research-toggle:hover,.research-toggle:focus-visible{background:#29444e}
+.research-toggle>span:first-child{display:flex;flex-direction:column;gap:2px}
+.research-toggle strong{font-size:16px}
+.research-toggle small{display:block;color:var(--muted);font-size:12px}
+.research-settings-body{padding:20px;display:flex;flex-direction:column;gap:20px}
+.research-settings-body>.note{max-width:1100px}
+.research-tech-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:10px}
+.research-tech{display:flex;flex-direction:column;justify-content:space-between;gap:12px;background:#192d35;border:1px solid var(--edge);padding:12px 14px;border-radius:10px}
+.research-tech-active{border-color:#46816e;background:#19342f}
+.research-tech-unknown{border-style:dashed}
+.research-tech label{display:flex;flex-direction:column;gap:2px}
+.research-tech label strong{font-size:13px}
+.research-tech-note{display:block;color:var(--muted);font-size:11px;line-height:1.4}
+.research-tech-controls{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+.research-tech-controls select{min-width:110px;border:1px solid var(--edge);border-radius:7px;color:var(--text);background:#0e2229;padding:7px}
+.research-bonus,.wide-day-points-cell.research-boosted strong,.wide-day-rates-cell .research-boosted strong{color:var(--green)!important}
+.research-bonus{font-weight:700;display:block;font-size:11px}
+.research-day-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(310px,1fr));gap:12px}
+.research-day-card{border:1px solid var(--edge);border-radius:12px;padding:14px;background:#192f37;min-width:0}
+.research-day-top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+.research-day-top h4{margin:4px 0;font-size:15px}
+.research-day-top>strong{font-size:17px;white-space:nowrap}
+.research-day-math{display:flex;flex-wrap:wrap;gap:15px;font-size:12px;margin:8px 0}
+.research-day-details{margin-top:14px}
+.research-day-details summary{font-size:12px;font-weight:700;cursor:pointer;color:var(--gold)}
+.research-day-details .table-wrap{margin-top:10px}
+.research-day-details th,.research-day-details td{font-size:11px;padding:6px;text-align:right}
+.research-day-details th:first-child,.research-day-details td:first-child{text-align:left}
+.wide-item-label{font-weight:700}
+@media(max-width:620px){
+  .research-settings-body{padding:12px}
+  .research-tech-grid,.research-day-grid{grid-template-columns:minmax(0,1fr)}
+  .research-toggle{padding:12px}
+}

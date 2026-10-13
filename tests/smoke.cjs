@@ -80,6 +80,41 @@ assert.equal(items.filter(i => i.speedupMinutes != null).length,12);
 assert.equal(official.shield_24h.speedupMinutes,null);
 assert.equal(official.dark_cans_10.speedupMinutes,null);
 
+vm.runInNewContext(text("data/alliance-competition.js"), sandbox, {filename: "alliance-competition.js"});
+const event = sandbox.window.ZR_ALLIANCE_COMPETITION;
+assert.equal(event.days.length,6);
+assert.equal(event.source,"https://zrouteguide.com/events/alliance-competition/event-guide/");
+const score = (item,day,shop) => {
+  const offer = offers.find(o=>o.item===item && (!shop || o.shop===shop));
+  return event.scoreForOffer(official[item],offer,day)?.points ?? null;
+};
+// Stage-specific, single-use scores from the community event task guide.
+assert.equal(score("speed_5m",2,"VIP"),275); // 5 minutes x 55, not 555
+assert.equal(score("speed_5m",3,"Alliance"),275); // generic speedups for research
+assert.equal(score("speed_5m",4,"VIP"),null);
+assert.equal(score("speed_5m",5,"VIP"),275);
+assert.equal(score("speed_5m",6,"VIP"),275);
+assert.equal(score("build_1h",2),3300);
+assert.equal(score("build_1h",3),null);
+assert.equal(score("research_1h",2),null);
+assert.equal(score("research_1h",3),3300);
+assert.equal(score("train_8h",5),26400);
+assert.equal(score("train_8h",6),26400);
+assert.equal(score("heal_8h",5),null);
+assert.equal(score("heal_8h",6),26400);
+assert.equal(score("fighter_part",1),2600);
+assert.equal(score("card_10k",1,"Trial"),40000); // 10k-chip bundle, 4 points each
+assert.equal(score("dark_cans_10",1,"VIP"),1550); // 10 stamina x 155
+assert.equal(score("blue_ticket",2),1600);
+assert.equal(score("fighter_chest_1",3),1155);
+assert.equal(score("fighter_chest_3",3),10500);
+assert.equal(score("gold_ticket",4),1600);
+assert.equal(score("hero_gold",4),10500);
+assert.equal(score("purple_puzzle",4),3600);
+assert.equal(score("blue_puzzle",4),1050);
+assert.equal(score("blue_skill_book",4),12);
+assert.equal(score("xp_chest_blue",4),null); // scaling contents: don't invent a fixed score
+assert.equal(score("shield_8h",6),null);
 vm.runInNewContext(text("assets/speedup-math.js"), sandbox, {filename: "speedup-math.js"});
 const math = sandbox.window.ZR_SPEEDUPS;
 for(const [sec,price] of [[5527,265],[6975,327],[21361,894],[73466,2717],[109395,3888],[35586,1415]]){
@@ -168,7 +203,7 @@ assert(crystalCell("logs").includes('>800</strong>') &&
 assert.equal(crystalCell("hero_gold").trim(),"—");
 const heroWideRow=getWideRow("hero_gold");
 assert(heroWideRow,"Missing UR Omni Hero Shard");
-assert.equal(wideCells("hero_gold").length,10); // 5 shop columns + 3 rates + parity + crystal equivalent
+assert.equal(wideCells("hero_gold").length,22); // 10 prior columns + 6 daily point/rate pairs
 assert(heroWideRow.includes("3,000") && heroWideRow.includes("VIP 11 · locked"));
 assert(heroWideRow.includes("wide-empty") && heroWideRow.includes('wide-amount mono">200'));
 const c1=wideCells("build_1h"), c8=wideCells("build_8h");
@@ -191,8 +226,41 @@ assert(threeHour[5].includes('>1.067</span>') && threeHour[5].includes('VIP 8 (l
 assert(wideCells("vip_3h")[8].includes("1,290d"),"VIP 3h rate parity");
 assert(wideCells("universal_8h")[8].includes("2,460d 9h"),"VIP 8h rate parity");
 for(const notSpeedup of ["shield_8h","dark_cans_10"]){
-  assert(wideCells(notSpeedup).slice(5).every(cell=>cell.trim()==="—"),"Non-speedup rate cells must be blank");
+  assert(wideCells(notSpeedup).slice(5,10).every(cell=>cell.trim()==="—"),"Non-speedup time-rate cells must be blank");
 }
+// The original columns remain in the same positions; 6 daily pairs follow crystal cost.
+assert.match(text("index.html"),/data\/alliance-competition\.js/);
+for(let day=1;day<=6;day++){
+  assert(rendered().includes('Day '+day+' ('+event.days[day-1].weekday+')'),"Missing day header "+day);
+  assert(rendered().includes("Points / currency"),"Missing per-currency heading");
+}
+const dayPoints=(id,day)=>wideCells(id)[10+(day-1)*2];
+const dayRates=(id,day)=>wideCells(id)[11+(day-1)*2];
+for(const day of [2,3,5,6]){
+  assert(dayPoints("speed_5m",day).includes(">275</strong>"),"5m speedup is 275 pts on day "+day);
+  assert(dayRates("speed_5m",day).includes(">34.375</strong>") &&
+         dayRates("speed_5m",day).includes(">3.667</strong>"),
+         "Should calculate 275/8 VIP diamonds and 275/75 Alliance coins");
+}
+assert.equal(dayPoints("speed_5m",1).trim(),"—");
+assert.equal(dayPoints("speed_5m",4).trim(),"—");
+assert(dayPoints("card_10k",1).includes(">40,000</strong>"));
+assert(dayRates("card_10k",1).includes(">40</strong>")); // 40k points / 1k Trial medals
+assert(dayPoints("dark_cans_10",1).includes(">1,550</strong>"));
+assert(dayRates("dark_cans_10",1).includes(">43.056</strong>")); // 1550 / 36 reported diamonds
+assert(dayPoints("fighter_part",1).includes(">2,600</strong>"));
+assert(dayPoints("fighter_chest_3",3).includes(">10,500</strong>"));
+assert(dayPoints("hero_gold",4).includes(">10,500</strong>"));
+assert(dayPoints("purple_puzzle",4).includes(">3,600</strong>"));
+assert(dayPoints("blue_puzzle",4).includes(">1,050</strong>"));
+assert(dayPoints("blue_skill_book",4).includes(">12</strong>"));
+assert(dayPoints("research_1h",2).trim()==="—" && dayPoints("research_1h",3).includes(">3,300</strong>"));
+assert(dayPoints("heal_8h",5).trim()==="—" && dayPoints("heal_8h",6).includes(">26,400</strong>"));
+assert.equal(dayPoints("xp_chest_blue",4).trim(),"—");
+assert(dayRates("hero_gold",4).includes('aria-label="Diamonds"') &&
+       dayRates("hero_gold",4).includes('aria-label="Trial medals"') &&
+       dayRates("hero_gold",4).includes('aria-label="Honor medals"'),
+       "Per currency entries should preserve separate icons and shops");
 const fighterWideRow=getWideRow("fighter_part");
 assert(fighterWideRow.includes("reported price"));
 assert(getWideRow("card_10k").includes("for 10,000 units"));
@@ -245,6 +313,12 @@ sandbox.window.prompt=()=> "6";
 handlers.click({target:{closest(selector){return selector==="[data-edit]"?{dataset:{edit:vipGold.id}}:null;}}});
 assert(crystalCell("blue_hex").includes('>96</strong>') &&
        crystalCell("blue_hex").includes("edited"),"Changing Heat-Resistant Gold price to 6 diamonds must yield 96 diamonds/crystal");
+// Editing a shop price must recalculate points per currency, not point totals.
+const vipFive=offers.find(o=>o.item==="speed_5m"&&o.shop==="VIP");
+sandbox.window.prompt=()=> "10";
+handlers.click({target:{closest(selector){return selector==="[data-edit]"?{dataset:{edit:vipFive.id}}:null;}}});
+assert(dayPoints("speed_5m",2).includes(">275</strong>"));
+assert(dayRates("speed_5m",2).includes(">27.5</strong>"),"275 points / 10 edited diamonds");
 tab("catalog");
 assert(!wideClasses.has("wide-layout"),"Other tabs should use the narrower reading layout");
 assert.match(rendered(), /Shop price catalog/);

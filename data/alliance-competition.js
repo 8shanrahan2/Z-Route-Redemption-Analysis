@@ -5,6 +5,7 @@
  */
 window.ZR_ALLIANCE_COMPETITION = (() => {
   "use strict";
+  const heroExp=window.ZR_HERO_EXP;
   const days = [
     {day:1,name:"Radar Exploration",weekday:"Mon"},
     {day:2,name:"Base Construction",weekday:"Tue"},
@@ -38,8 +39,14 @@ window.ZR_ALLIANCE_COMPETITION = (() => {
     const match = /^(build|research|train|heal)_/.exec(id);
     return match ? match[1] : "generic";
   };
-  const scorePerItem = (item,day) => {
+  const scorePerItem = (item,day,baseLevel=heroExp?.defaultBaseLevel??21) => {
     if(!item || !Number.isInteger(day) || day<1 || day>6)return null;
+    if(day===4 && heroExp?.gradeForItem(item.id)){
+      const exp=heroExp.expForItem(item.id,baseLevel);
+      return {kind:"hero_exp",points:exp/heroExp.expPerPoint,
+        task:"Spend "+exp.toLocaleString("en-US")+" Hero EXP from one "+heroExp.gradeForItem(item.id)+
+          " chest (650 EXP per 1 point; points credited when EXP is spent)"};
+    }
     if(Number.isFinite(item.speedupMinutes) && item.speedupMinutes>0){
       const type=speedupType(item.id);
       if(!(speedupDayTypes[day]||[]).includes(type))return null;
@@ -49,8 +56,8 @@ window.ZR_ALLIANCE_COMPETITION = (() => {
     const action=actions[item.id]?.[day] ?? null;
     return action ? {kind:"other",...action} : null;
   };
-  const scoreForOffer = (item,offer,day) => {
-    const rule=scorePerItem(item,day);
+  const scoreForOffer = (item,offer,day,baseLevel=heroExp?.defaultBaseLevel??21) => {
+    const rule=scorePerItem(item,day,baseLevel);
     if(!rule || !(Number(offer?.quantity)>0) || !Number.isFinite(Number(offer.quantity)))return null;
     return {...rule,points:rule.points*Number(offer.quantity)};
   };

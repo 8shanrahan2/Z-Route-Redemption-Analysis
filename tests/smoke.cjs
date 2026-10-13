@@ -80,6 +80,18 @@ assert.equal(items.filter(i => i.speedupMinutes != null).length,12);
 assert.equal(official.shield_24h.speedupMinutes,null);
 assert.equal(official.dark_cans_10.speedupMinutes,null);
 
+vm.runInNewContext(text("data/hero-exp.js"), sandbox, {filename: "hero-exp.js"});
+const heroExp = sandbox.window.ZR_HERO_EXP;
+assert.equal(heroExp.defaultBaseLevel,21);
+assert.equal(heroExp.maxBaseLevel,30);
+assert.equal(heroExp.expPerPoint,650);
+assert.equal(heroExp.expForItem("xp_chest_blue",21),468000);
+assert.equal(heroExp.expForItem("xp_chest_purple",21),3744000);
+assert.equal(heroExp.expForItem("xp_chest_brown",21),11232000);
+assert.equal(heroExp.expForItem("xp_chest_brown",20),10080000);
+assert.equal(heroExp.expForItem("xp_chest_brown",30),25970400);
+assert.equal(heroExp.expForItem("hero_gold",21),null);
+assert.equal(heroExp.normalizeBaseLevel(99),21);
 vm.runInNewContext(text("data/alliance-competition.js"), sandbox, {filename: "alliance-competition.js"});
 const event = sandbox.window.ZR_ALLIANCE_COMPETITION;
 assert.equal(event.days.length,6);
@@ -113,7 +125,12 @@ assert.equal(score("hero_gold",4),10500);
 assert.equal(score("purple_puzzle",4),3600);
 assert.equal(score("blue_puzzle",4),1050);
 assert.equal(score("blue_skill_book",4),12);
-assert.equal(score("xp_chest_blue",4),null); // scaling contents: don't invent a fixed score
+assert.equal(score("xp_chest_blue",4),720); // 468,000 EXP / 650
+assert.equal(score("xp_chest_purple",4),5760);
+assert.equal(score("xp_chest_brown",4),17280);
+assert.equal(event.scorePerItem(official.xp_chest_brown,4,20).points,10080000/650);
+assert.equal(score("xp_chest_brown",3),null);
+assert.equal(event.scorePerItem(official.xp_chest_brown,4).kind,"hero_exp");
 assert.equal(score("shield_8h",6),null);
 vm.runInNewContext(text("data/alliance-research.js"), sandbox, {filename: "alliance-research.js"});
 const research = sandbox.window.ZR_ALLIANCE_RESEARCH;
@@ -148,6 +165,8 @@ assert.match(rendered(), /class="item-icon"/);
 assert.match(rendered(), /class="currency-icon"/);
 assert.match(rendered(), /Wide price table/);
 assert.match(rendered(), /Alliance Competition research/);
+assert.match(rendered(), /id="wide-base-level"/);
+assert.match(rendered(), /<option value="21" selected>Level 21<\/option>/);
 assert(!rendered().includes("Shops tracked"),"Removed overview cards");
 const site=text("index.html");
 assert.equal((site.match(/data-tab=/g)||[]).length,2,"Only two visible tool tabs");
@@ -222,7 +241,7 @@ assert(crystalCell("logs").includes('>800</strong>') &&
 assert.equal(crystalCell("hero_gold").trim(),"—");
 const heroWideRow=getWideRow("hero_gold");
 assert(heroWideRow,"Missing UR Omni Hero Shard");
-assert.equal(wideCells("hero_gold").length,22); // 10 prior columns + 6 daily point/rate pairs
+assert.equal(wideCells("hero_gold").length,23); // 11 prior columns + 6 daily point/rate pairs
 assert(heroWideRow.includes("3,000") && heroWideRow.includes("VIP 11 · locked"));
 assert(heroWideRow.includes("wide-empty") && heroWideRow.includes('wide-amount mono">200'));
 const c1=wideCells("build_1h"), c8=wideCells("build_8h");
@@ -253,8 +272,13 @@ for(let day=1;day<=6;day++){
   assert(rendered().includes('Day '+day+' ('+event.days[day-1].weekday+')'),"Missing day header "+day);
   assert(rendered().includes("Points / currency"),"Missing per-currency heading");
 }
-const dayPoints=(id,day)=>wideCells(id)[10+(day-1)*2];
-const dayRates=(id,day)=>wideCells(id)[11+(day-1)*2];
+const expCell=id=>wideCells(id)[10];
+assert(expCell("xp_chest_blue").includes("468,000"));
+assert(expCell("xp_chest_purple").includes("3,744,000"));
+assert(expCell("xp_chest_brown").includes("11,232,000"));
+assert.equal(expCell("hero_gold").trim(),"—");
+const dayPoints=(id,day)=>wideCells(id)[11+(day-1)*2];
+const dayRates=(id,day)=>wideCells(id)[12+(day-1)*2];
 for(const day of [2,3,5,6]){
   assert(dayPoints("speed_5m",day).includes(">275</strong>"),"5m speedup is 275 pts on day "+day);
   assert(dayRates("speed_5m",day).includes(">34.375</strong>") &&
@@ -275,7 +299,11 @@ assert(dayPoints("blue_puzzle",4).includes(">1,050</strong>"));
 assert(dayPoints("blue_skill_book",4).includes(">12</strong>"));
 assert(dayPoints("research_1h",2).trim()==="—" && dayPoints("research_1h",3).includes(">3,300</strong>"));
 assert(dayPoints("heal_8h",5).trim()==="—" && dayPoints("heal_8h",6).includes(">26,400</strong>"));
-assert.equal(dayPoints("xp_chest_blue",4).trim(),"—");
+assert(dayPoints("xp_chest_blue",4).includes(">720</strong>"));
+assert(dayPoints("xp_chest_purple",4).includes(">5,760</strong>"));
+assert(dayPoints("xp_chest_brown",4).includes(">17,280</strong>"));
+assert(dayRates("xp_chest_brown",4).includes(">36</strong>"),"17,280 points / 480 VIP diamonds = 36");
+assert(dayRates("xp_chest_purple",4).includes(">19.2</strong>"),"5,760 points / 300 Trial medals");
 assert(dayRates("hero_gold",4).includes('aria-label="Diamonds"') &&
        dayRates("hero_gold",4).includes('aria-label="Trial medals"') &&
        dayRates("hero_gold",4).includes('aria-label="Honor medals"'),
@@ -359,8 +387,18 @@ assert.notEqual(visibleRows()[0],beforeReverse,"Second currency click reverses t
 assert(rendered().includes('aria-sort="ascending"'));
 assert.equal(elements["wide-scroll"].scrollLeft,292);
 clickSort("day4-points");
-assert.equal(visibleRows()[0],"hero_gold","Day 4 highest base per-offer points should be 10,500");
+assert.equal(visibleRows()[0],"xp_chest_brown","Base 21 UR EXP chest provides most Day 4 points per offer");
 assert(rendered().includes('data-wide-sort="day4-points"'));
+// Changing Base level updates EXP and points and retains scroll position.
+handlers.change({target:{id:"wide-base-level",value:"22",dataset:{}}});
+assert.equal(JSON.parse(saved["zr-shop-ledger-v1"]).baseLevel,22);
+assert(expCell("xp_chest_brown").includes("12,384,000"));
+assert(dayPoints("xp_chest_brown",4).includes(">19,052.31</strong>"));
+assert.equal(elements["wide-scroll"].scrollTop,176);
+assert.equal(elements["wide-scroll"].scrollLeft,292);
+assert.equal(lastPageScroll.top,685);
+handlers.change({target:{id:"wide-base-level",value:"21",dataset:{}}});
+assert(dayRates("xp_chest_brown",4).includes(">36</strong>"));
 handlers.change({target:{id:"alliance-assumption",value:"80",dataset:{rate:"Alliance"}}});
 assert(wideCells("build_1h")[8].includes("397d 8h 45m") && wideCells("build_1h")[8].includes("modeled"),
   "User-supplied Alliance conversion should generate a labeled break-even time");
@@ -396,6 +434,8 @@ assert(dayRates("speed_5m",2).includes(">30.25</strong>") &&
        dayRates("speed_5m",2).includes(">4.033</strong>"),
        "General buff changes both edited VIP and Alliance ratios");
 assert(dayPoints("hero_gold",4).includes(">11,550</strong>"),"General buff affects hero shards");
+assert(dayPoints("xp_chest_brown",4).includes(">19,008</strong>"),"General buff affects Hero EXP spent");
+assert(dayRates("xp_chest_brown",4).includes(">39.6</strong>"),"19,008 / 480 diamonds");
 assert.match(rendered(), /research-boosted/);
 assert.match(rendered(), /research-bonus/);
 editResearch(9002,2);

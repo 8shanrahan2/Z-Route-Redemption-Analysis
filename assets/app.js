@@ -680,7 +680,16 @@
     const selected=e.target.closest("[data-select]");
     if(selected){state.selected=selected.dataset.select;state.tab="compare";save();render();window.scrollTo({top:0,behavior:"smooth"});return;}
     const researchToggle=e.target.closest("[data-research-toggle]");
-    if(researchToggle){state.researchOpen=!state.researchOpen;save();render();return;}
+    if(researchToggle){
+      const before=q("wide-scroll"),top=before?.scrollTop??0,left=before?.scrollLeft??0;
+      const pageTop=window.scrollY,pageLeft=window.scrollX;
+      state.researchOpen=!state.researchOpen;save();render();
+      const after=q("wide-scroll");if(after){after.scrollTop=top;after.scrollLeft=left;}
+      q("wide-table")?.querySelector?.("[data-research-toggle]")?.focus?.({preventScroll:true});
+      if(Number.isFinite(pageTop) && typeof window.scrollTo==="function")
+        window.scrollTo({top:pageTop,left:Number.isFinite(pageLeft)?pageLeft:0,behavior:"instant"});
+      return;
+    }
     const sort=e.target.closest("[data-wide-sort]");
     if(sort){
       const key=sort.dataset.wideSort;

@@ -240,9 +240,11 @@ window.ZR_ALLIANCE_RESEARCH = (() => {
       if(value==null){unknown.push({id:t.id,name:t.name,level:lvl});continue;}
       if(value>0)active.push({id:t.id,name:t.name,level:lvl,percent:value,added:score.points*value});
     }
-    const percentTotal=active.reduce((sum,b)=>sum+b.percent,0);
-    return {base:score.points,percentTotal,bonus:score.points*percentTotal,
-      total:score.points*(1+percentTotal),active,unknown};
+    const stable = value => Math.round((value+Number.EPSILON)*1e6)/1e6;
+    const percentTotal=stable(active.reduce((sum,b)=>sum+b.percent,0));
+    const total=stable(score.points*(1+percentTotal));
+    return {base:score.points,percentTotal,bonus:stable(total-score.points),
+      total,active,unknown};
   };
   return {techs,byId,clampLevel,percent,model,source:"https://github.com/JeffxLabs/zrouteredemption/blob/main/research/research_data.js"};
 })();

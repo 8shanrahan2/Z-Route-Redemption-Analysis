@@ -23,7 +23,7 @@ window.ZR_RESEARCH_PANEL = (() => {
     }).join("");
     const days=competition.days.map(d=>{
       const items=base.items.flatMap(item=>{
-        const raw=competition.scorePerItem(item,d.day),calc=research.model(raw,levels);
+        const raw=competition.scorePerItem(item,d.day,state.baseLevel),calc=research.model(raw,levels);
         return calc?[{item,calc}]:[];
       });
       const baseTotal=items.reduce((v,e)=>v+e.calc.base,0);

@@ -7,8 +7,9 @@
   const speedups = window.ZR_SPEEDUPS;
   const competition = window.ZR_ALLIANCE_COMPETITION;
   const competitionDays = competition?.days ?? [];
+  const research = window.ZR_ALLIANCE_RESEARCH;
   const defaults = {
-    tab:"compare", selected:"fighter_part", vip:7, mode:"all", rankShop:"Alliance",
+    tab:"wide", researchLevels:{}, researchOpen:false, selected:"fighter_part", vip:7, mode:"all", rankShop:"Alliance",
     rates:{Alliance:"",Trial:"",Honor:""}, manual:{},
     changes:{}, additions:[], shop:"All", search:"", category:"All",
     includeReported:true, wideSearch:"", wideCategory:"All", wideScope:"all", wideSortKey:"item", wideSortDirection:"asc",
@@ -19,7 +20,9 @@
     const stored = JSON.parse(localStorage.getItem(storageKey)||"{}");
     state = {...defaults,...stored,rates:{...defaults.rates,...(stored.rates||{})},
       manual:stored.manual||{},changes:stored.changes||{},
-      additions:Array.isArray(stored.additions)?stored.additions:[]};
+      additions:Array.isArray(stored.additions)?stored.additions:[],
+      researchLevels:stored.researchLevels&&typeof stored.researchLevels==="object"?stored.researchLevels:{}};
+    if(state.tab!=="wide" && state.tab!=="calculator")state.tab="wide";
   } catch(e) {}
   const q = id => document.getElementById(id);
   const esc = value => String(value == null ? "" : value).replace(/[&<>"']/g,
@@ -89,15 +92,6 @@
     const id=typeof o==="string"?o:o.value, name=typeof o==="string"?o:o.label;
     return '<option value="'+esc(id)+'"'+(String(id)===String(selected)?" selected":"")+'>'+esc(name)+'</option>';
   }).join("");
-  function renderOverview(){
-    const offers=allOffers();
-    q("overview").innerHTML = [
-      ["5","Shops tracked","3 different non-diamond currencies"],
-      [String(offers.length),"Shop offers","Including reported/hidden prices"],
-      [String(new Set(offers.map(o=>o.item)).size),"Unique items","Some icon names provisional"],
-      ["4","Confirmed VIP gates","VIP 8 · 9 · 10 · 11"]
-    ].map(x=>'<div class="stat"><div class="label">'+x[1]+'</div><div class="num">'+x[0]+'</div><div class="detail">'+x[2]+'</div></div>').join("");
-  }
   function compare(){
     const item=itemById(state.selected), benchmark=anchor(item.id);
     const relevant=allOffers().filter(o=>o.item===item.id && (state.includeReported || o.evidence!=="reported"));
@@ -369,29 +363,45 @@
   const competitionOffers = shops => wideColumns.flatMap(({shop})=>sortedShopOffers(shops.get(shop)));
   const scoredDayOffers = (item,shops,day) => competitionOffers(shops).flatMap(o=>{
     const score=competition?.scoreForOffer(item,o,day);
-    return score ? [{o,points:score.points,task:score.task}] : [];
+    if(!score)return [];
+    const modeled=research?.model(score,state.researchLevels);
+    return [{o,points:modeled?.total ?? score.points,basePoints:score.points,task:score.task,
+      bonus:modeled?.bonus??0,buffs:modeled?.active??[],unknown:modeled?.unknown??[]}];
   });
   const wideDayPointsCell = (item,shops,day) => {
     const entries=scoredDayOffers(item,shops,day);
     if(!entries.length)return '<td class="wide-empty" title="No directly quantifiable action for this item on this stage">—</td>';
     const distinct=[...new Set(entries.map(e=>e.points))];
     const task=entries[0].task;
-    if(distinct.length===1)return '<td class="wide-day-points-cell" title="'+esc(task+'; points on use, per purchased offer')+'"><strong class="mono">'+fmt(distinct[0])+'</strong></td>';
-    return '<td class="wide-day-points-cell" title="'+esc(task)+'">'+entries.map(({o,points})=>
-      '<div class="wide-day-entry"><strong class="mono">'+fmt(points)+'</strong>'+
-      '<span class="wide-rate-shop">'+esc(o.shop+' · '+fmt(o.quantity)+' items')+'</span></div>').join("")+'</td>';
+    const details=e=>e.buffs.map(b=>b.name+' Lv.'+b.level+' +'+fmt(b.percent*100)+'%').join(', ')+
+      (e.unknown.length?' · Some selected tech effects unavailable':'');
+    if(distinct.length===1){
+      const e=entries[0];
+      return '<td class="wide-day-points-cell'+(e.bonus>0?' research-boosted':'')+
+        '" title="'+esc(task+(e.bonus>0?' · '+details(e):'')+'; points on use, per purchased offer')+'">'+
+        '<strong class="mono">'+fmt(e.points)+'</strong>'+
+        (e.bonus>0?'<span class="research-bonus">+'+fmt(e.bonus)+' pts · base '+fmt(e.basePoints)+'</span>':'')+
+        '</td>';
+    }
+    return '<td class="wide-day-points-cell">'+entries.map(e=>
+      '<div class="wide-day-entry" title="'+esc(task+' · '+details(e))+'"><strong class="mono">'+fmt(e.points)+'</strong>'+
+      (e.bonus>0?'<span class="research-bonus">+'+fmt(e.bonus)+' pts</span>':'')+
+      '<span class="wide-rate-shop">'+esc(e.o.shop+' · '+fmt(e.o.quantity)+' items')+'</span></div>').join("")+'</td>';
   };
   const wideDayRatesCell = (item,shops,day) => {
     const entries=scoredDayOffers(item,shops,day);
     if(!entries.length)return '<td class="wide-empty" title="No directly quantifiable action for this item on this stage">—</td>';
-    return '<td class="wide-day-rates-cell">'+entries.map(({o,points})=>{
+    return '<td class="wide-day-rates-cell">'+entries.map(({o,points,bonus,buffs,unknown})=>{
       if(o.price==null)return '<div class="wide-day-entry"><span class="wide-unavailable">Price unknown</span><span class="wide-rate-shop">'+esc(o.shop)+'</span></div>';
       if(!(Number(o.price)>0))return '<div class="wide-day-entry"><span class="wide-unavailable">Free / no ratio</span><span class="wide-rate-shop">'+esc(o.shop)+'</span></div>';
       const locked=o.shop==="VIP" && o.minVip!=null && o.minVip>state.vip;
       const title=fmt(points)+" points / "+fmt(o.price)+" "+o.currency+" = "+fmtMinuteRate(points/Number(o.price))+" points per "+o.currency+
-        " · "+o.shop+" · awarded on use";
-      return '<div class="wide-day-entry" title="'+esc(title)+'"><div class="wide-day-ratio">'+
+        " · "+o.shop+" · awarded on use"+
+        (bonus>0?" · Research: "+buffs.map(b=>b.name+" +"+fmt(b.percent*100)+"%").join(", "):"")+
+        (unknown.length?" · Additional tech bonus unverified":"");
+      return '<div class="wide-day-entry'+(bonus>0?' research-boosted':'')+'" title="'+esc(title)+'"><div class="wide-day-ratio">'+
         '<strong class="mono">'+fmtMinuteRate(points/Number(o.price))+'</strong>'+currencyIcon(o.currency)+'</div>'+
+        (bonus>0?'<span class="research-bonus">+'+fmtMinuteRate(bonus/Number(o.price))+' pts / currency</span>':'')+
         '<span class="wide-rate-shop">'+esc(o.shop+(o.minVip!=null?' VIP '+o.minVip:'')+(locked?' (locked)':'')+
           (o.evidence==='reported'?' (reported)':o.evidence==='edited'?' (edited)':''))+'</span></div>';
     }).join("")+'</td>';
@@ -399,14 +409,14 @@
   const normalizedDayPointsCsv = (item,shops,day) => {
     const entries=scoredDayOffers(item,shops,day);
     if(!entries.length)return "";
-    if(new Set(entries.map(e=>e.points)).size===1)return String(entries[0].points);
-    return entries.map(({o,points})=>points+" ("+o.shop+", "+o.quantity+" items)").join(" | ");
+    if(new Set(entries.map(e=>e.points)).size===1)return String(entries[0].points)+(entries[0].bonus>0?" (base "+entries[0].basePoints+" + research "+entries[0].bonus+")":"");
+    return entries.map(({o,points,basePoints,bonus})=>points+" ("+o.shop+", "+o.quantity+" items"+(bonus>0?", base "+basePoints+" + research "+bonus:"")+")").join(" | ");
   };
-  const normalizedDayRatesCsv = (item,shops,day) => scoredDayOffers(item,shops,day).map(({o,points})=>{
+  const normalizedDayRatesCsv = (item,shops,day) => scoredDayOffers(item,shops,day).map(({o,points,bonus})=>{
     if(o.price==null)return "Price unknown ("+o.shop+")";
     if(!(Number(o.price)>0))return "Free / no ratio ("+o.shop+")";
     return fmtMinuteRate(points/Number(o.price))+" points/"+o.currency+" ("+o.shop+
-      (o.minVip!=null?", VIP "+o.minVip:"")+", "+points+" pts / "+o.price+" "+o.currency+")";
+      (o.minVip!=null?", VIP "+o.minVip:"")+", "+points+" pts / "+o.price+" "+o.currency+(bonus>0?", includes +"+bonus+" research points":"")+")";
   }).join(" | ");
   const competitionHead = () => competitionDays.map(d=>{
     const ptsKey="day"+d.day+"-points",ptsActive=state.wideSortKey===ptsKey;

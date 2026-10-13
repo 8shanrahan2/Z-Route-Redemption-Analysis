@@ -171,7 +171,14 @@ assert.match(rendered(), /id="wide-download"/);
 for (const label of ["Diamonds / min","Alliance coins / min","Trial medals / min"]) {
   assert(rendered().includes(label),"Missing currency-specific rate header: "+label);
 }
-assert.equal((rendered().match(/data-wide-sort=/g)||[]).length,5);
+assert.equal((rendered().match(/data-wide-sort=/g)||[]).length,35); // 5 old sorts + 6 x (points + 4 currencies)
+for(let day=1;day<=6;day++){
+  assert(rendered().includes('data-wide-sort="day'+day+'-points"'),"Missing points sort for day "+day);
+  for(const currency of ["diamonds","alliance","trial","honor"]){
+    const key='day'+day+'-'+currency;
+    assert(rendered().includes('data-wide-sort="'+key+'"'),"Missing per-currency sort "+key);
+  }
+}
 assert.match(rendered(), /Instant-rate break-even/);
 assert.match(rendered(), /Cost per Conductive Crystal/);
 assert.equal((rendered().match(/data-wide-item=/g)||[]).length,52);
@@ -304,6 +311,44 @@ assert.equal(visibleRows()[0],"universal_8h"); // 1 diamond/min
 assert(rendered().includes('data-wide-sort="diamonds"'));
 clickSort("trial");
 assert.equal(visibleRows()[0],"universal_1h"); // 8.333 trial medals/min
+// Every day/currency combination should sort by its best raw points/currency ratio.
+// Never mix currencies or treat missing quotes / non-scoring items as zero.
+const sortCurrencyNames={diamonds:"Diamonds",alliance:"Alliance coins",trial:"Trial medals",honor:"Honor medals"};
+const expectedDaySortValue=(id,day,currency)=>{
+  const vals=offers.filter(o=>o.item===id && o.price>0 && o.currency===sortCurrencyNames[currency])
+    .map(o=>(event.scoreForOffer(official[id],o,day)?.points ?? NaN)/o.price)
+    .filter(Number.isFinite);
+  return vals.length?Math.max(...vals):null;
+};
+for(const [day,currency] of [[1,"trial"],[1,"diamonds"],[2,"diamonds"],[2,"alliance"],
+                            [3,"trial"],[4,"honor"],[4,"diamonds"],[5,"diamonds"],[6,"alliance"]]){
+  const key="day"+day+"-"+currency;
+  clickSort(key);
+  assert(rendered().includes('data-wide-sort="'+key+'" aria-label="Sort Day '+day),
+    "Button should stay available for "+key);
+  assert.equal(elements["wide-scroll"].scrollTop,176,"Day sort must preserve vertical scroll");
+  assert.equal(elements["wide-scroll"].scrollLeft,292,"Day sort must preserve horizontal scroll");
+  assert.equal(lastPageScroll.top,685,"Day sort must preserve page position");
+  assert(focusPreserved,"Day sort should restore focus without scrolling");
+  const vals=visibleRows().map(id=>expectedDaySortValue(id,day,currency));
+  assert(vals[0]!=null,"Known stage/currency should yield a scoring item: "+key);
+  const known=vals.filter(v=>v!=null);
+  assert(known.every((v,i)=>i===0 || known[i-1]>=v),
+    key+" should rank by highest unrounded points per selected currency");
+  assert(vals.slice(known.length).every(v=>v==null),"Missing prices must be last for "+key);
+  assert(rendered().includes('aria-pressed="true"'),"Selected currency sort button should be visibly active");
+  assert(rendered().includes('aria-sort="descending"'),"Day rate should default highest first");
+}
+clickSort("day2-alliance");
+assert.equal(visibleRows()[0],"build_8h","4.4 points/Alliance coin should outrank 3.667 from 5-minute speedups");
+const beforeReverse=visibleRows()[0];
+clickSort("day2-alliance");
+assert.notEqual(visibleRows()[0],beforeReverse,"Second currency click reverses to lowest first");
+assert(rendered().includes('aria-sort="ascending"'));
+assert.equal(elements["wide-scroll"].scrollLeft,292);
+clickSort("day4-points");
+assert.equal(visibleRows()[0],"hero_gold","Day 4 highest base per-offer points should be 10,500");
+assert(rendered().includes('data-wide-sort="day4-points"'));
 handlers.change({target:{id:"alliance-assumption",value:"80",dataset:{rate:"Alliance"}}});
 assert(wideCells("build_1h")[8].includes("397d 8h 45m") && wideCells("build_1h")[8].includes("modeled"),
   "User-supplied Alliance conversion should generate a labeled break-even time");

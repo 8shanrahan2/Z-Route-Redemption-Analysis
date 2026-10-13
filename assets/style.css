@@ -161,12 +161,12 @@ footer a{text-decoration:none}
 
 /* Cost per queue-speedup minute, aggregated across all listed shops. */
 .wide-table{min-width:1190px}
-.wide-table thead th:last-child{width:244px}
+.wide-table thead th.wide-crystal-heading{width:244px}
 .wide-minutes-cell{min-width:220px;line-height:2;vertical-align:middle}
 .wide-unit-entry{display:inline-flex;align-items:center;gap:3px;white-space:nowrap;font-weight:600;color:var(--text);vertical-align:middle}
 .wide-unit-entry .currency-icon{flex:0 0 28px}
 .wide-rate-separator{color:var(--muted);margin-right:4px}
-@media(max-width:620px){.wide-table{min-width:1190px}.wide-table thead th:last-child{width:244px}}
+@media(max-width:620px){.wide-table{min-width:1190px}.wide-table thead th.wide-crystal-heading{width:244px}}
 
 /* Three independent, sortable currency-specific speedup rate columns. */
 .wide-table{min-width:1540px}
@@ -200,7 +200,7 @@ footer a{text-decoration:none}
 
 /* Active-timer diamond calculator and break-even column. */
 .wide-layout .wide-table{min-width:1680px}
-.wide-table thead th:last-child{min-width:182px;width:198px}
+.wide-table thead th.wide-crystal-heading{min-width:182px;width:198px}
 .wide-break-cell{min-width:182px;vertical-align:middle}
 .wide-break-entry{display:flex;flex-direction:column;gap:2px;padding:4px 0}
 .wide-break-entry+.wide-break-entry{border-top:1px dashed var(--edge);margin-top:6px;padding-top:7px}
@@ -219,10 +219,25 @@ footer a{text-decoration:none}
 
 /* Conductive Crystal crafting-equivalent price for three material rows. */
 .wide-layout .wide-table{min-width:1910px}
-.wide-table thead th:last-child{min-width:190px;width:206px}
+.wide-table thead th.wide-crystal-heading{min-width:190px;width:206px}
 .wide-crystal-cell{min-width:190px;vertical-align:middle}
 .wide-crystal-entry{display:flex;flex-direction:column;gap:1px;padding:5px 0}
 .wide-crystal-entry+.wide-crystal-entry{border-top:1px dashed var(--edge);margin-top:5px;padding-top:7px}
 .wide-crystal-price{display:inline-flex;align-items:center;gap:6px;color:var(--gold)}
 .wide-crystal-price strong{font-size:15px}
 .wide-crystal-price .currency-icon{flex:0 0 28px}
+
+/* Six Alliance Competition stages. Each day uses a points and points-per-currency pair.
+   The matrix remains horizontally scrollable, with item names and headings sticky. */
+.wide-layout .wide-table{min-width:4200px}
+.wide-day-header{min-width:175px;width:195px;line-height:1.4}
+.wide-day-subheading{display:block;color:var(--gold);font-size:11px;letter-spacing:0;text-transform:none;margin-top:3px}
+.wide-day-points-cell{min-width:160px;vertical-align:middle}
+.wide-day-points-cell strong{color:var(--green);font-size:15px}
+.wide-day-rates-cell{min-width:205px;vertical-align:middle}
+.wide-day-entry{display:flex;flex-direction:column;align-items:flex-start;gap:1px;padding:5px 0}
+.wide-day-entry + .wide-day-entry{border-top:1px dashed var(--edge);padding-top:8px;margin-top:5px}
+.wide-day-ratio{display:inline-flex;align-items:center;gap:5px}
+.wide-day-ratio .currency-icon{flex:0 0 28px}
+.wide-day-ratio strong{color:var(--text)}
+@media(max-width:620px){.wide-layout .wide-table{min-width:4050px}.wide-day-header{min-width:170px}}

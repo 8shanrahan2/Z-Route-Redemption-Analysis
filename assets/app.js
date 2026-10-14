@@ -11,7 +11,7 @@
   const heroExp=window.ZR_HERO_EXP;
   const defaults = {
     tab:"wide", baseLevel:21, researchLevels:{}, researchOpen:false, selected:"fighter_part", vip:7, mode:"all", rankShop:"Alliance",
-    rates:{Alliance:"",Trial:"",Honor:""}, manual:{},
+    rates:{Alliance:"",Trial:"",Honor:"",Devourer:""}, manual:{},
     changes:{}, additions:[], shop:"All", search:"", category:"All",
     includeReported:true, wideSearch:"", wideCategory:"All", wideScope:"all", wideSortKey:"item", wideSortDirection:"asc",
     calcHours:"1",calcMinutes:"0",calcSeconds:"0",calcQueue:"all"
@@ -37,6 +37,7 @@
   const shopById = id => base.shops.find(s=>s.id===id);
   // Shop currency icons from the game's screenshots; VIP and Diamond both cost diamonds.
   const currencyIcon = currency => {
+    if(currency==="Devourer coins")return '<span class="currency-icon currency-icon-devourer" role="img" aria-label="Devourer coins" title="Devourer coins"></span>';
     const n=({"Diamonds":0,"Alliance coins":1,"Trial medals":2,"Honor medals":3})[currency];
     return n===undefined ? '<span class="currency-icon currency-icon-missing" aria-label="'+esc(currency)+'">?</span>' :
       '<span class="currency-icon" role="img" aria-label="'+esc(currency)+'" title="'+esc(currency)+'" style="background-position:-'+(n*28)+'px 0"></span>';
@@ -48,7 +49,8 @@
   // Unknown/future items fall back to a symbol rather than showing the wrong item.
   const itemIcon = id => {
     const item=itemById(id), idx=item.iconIndex;
-    if (!Number.isInteger(idx) || idx<0 || idx>=52) return '<span class="item-icon item-icon-missing" aria-hidden="true">?</span>';
+    if (!Number.isInteger(idx) || idx<0 || idx>=59) return '<span class="item-icon item-icon-missing" aria-hidden="true">?</span>';
+    if(idx>=52)return '<span class="item-icon item-icon-devourer" aria-hidden="true" style="background-position:-'+((idx-52)*52)+'px 0"></span>';
     return '<span class="item-icon" aria-hidden="true" style="background-position:-'+((idx%8)*52)+'px -'+(Math.floor(idx/8)*52)+'px"></span>';
   };
 
@@ -75,7 +77,7 @@
     return benchmark && per>0 && o.currency!=="Diamonds" ? 1000*benchmark.price/per : null;
   };
   const rate = currency => currency==="Diamonds" ? 1000 :
-    ({ "Alliance coins":"Alliance", "Trial medals":"Trial", "Honor medals":"Honor" }[currency] || "");
+    ({ "Alliance coins":"Alliance", "Trial medals":"Trial", "Honor medals":"Honor", "Devourer coins":"Devourer" }[currency] || "");
   const modeledCost = o => {
     const per=priceUnit(o);
     if(per==null) return null;
@@ -117,7 +119,7 @@
     }).join("");
     const options=base.items.filter(i=>allOffers().some(o=>o.item===i.id))
       .sort((a,b)=>a.name.localeCompare(b.name)).map(i=>({value:i.id,label:i.name}));
-    const rateInputs=["Alliance","Trial","Honor"].map(s=>
+    const rateInputs=["Alliance","Trial","Honor","Devourer"].map(s=>
       '<div class="rate-box"><label for="rate-'+s+'">'+s+' — diamonds per 1,000 '+esc(shopById(s).currency)+'</label>'+
       '<input id="rate-'+s+'" data-rate="'+s+'" type="number" min="0" step="any" placeholder="Your estimate (optional)" value="'+esc(state.rates[s])+'"></div>'
     ).join("");
@@ -208,7 +210,8 @@
     {shop:"Diamond", label:"Diamond shop", currency:"Diamonds"},
     {shop:"VIP", label:"VIP shop", currency:"Diamonds"},
     {shop:"Trial", label:"Trial medals", currency:"Trial medals"},
-    {shop:"Honor", label:"Honor medals", currency:"Honor medals"}
+    {shop:"Honor", label:"Honor medals", currency:"Honor medals"},
+    {shop:"Devourer", label:"Devourer coins", currency:"Devourer coins"}
   ];
   const wideGroups = () => {
     const groups=new Map();
@@ -226,10 +229,11 @@
     {key:"diamonds",currency:"Diamonds",label:"Diamonds"},
     {key:"alliance",currency:"Alliance coins",label:"Alliance coins"},
     {key:"trial",currency:"Trial medals",label:"Trial medals"},
-    {key:"honor",currency:"Honor medals",label:"Honor medals"}
+    {key:"honor",currency:"Honor medals",label:"Honor medals"},
+    {key:"devourer",currency:"Devourer coins",label:"Devourer coins"}
   ];
   const competitionSort = key => {
-    const match=/^day([1-6])-(points|diamonds|alliance|trial|honor)$/.exec(key);
+    const match=/^day([1-6])-(points|diamonds|alliance|trial|honor|devourer)$/.exec(key);
     if(!match)return null;
     return {day:Number(match[1]),kind:match[2]};
   };
@@ -280,6 +284,7 @@
       const meta=[
         o.quantity!==1 ? "for "+fmt(o.quantity)+" units" : "",
         shop==="VIP" && o.minVip!=null ? "VIP "+o.minVip+(o.minVip>state.vip?" · locked":" · unlocked") : "",
+        o.shop==="Devourer" && o.limit===0 ? "sold out (0 remaining)" : "",
         o.evidence==="reported" ? "reported price" : "",
         o.evidence==="edited" ? "local edit" : ""
       ].filter(Boolean);
@@ -333,7 +338,8 @@
   const rateColumns = [
     {key:"diamonds",label:"Diamonds / min",currency:"Diamonds",shops:["Diamond","VIP"]},
     {key:"alliance",label:"Alliance coins / min",currency:"Alliance coins",shops:["Alliance"]},
-    {key:"trial",label:"Trial medals / min",currency:"Trial medals",shops:["Trial"]}
+    {key:"trial",label:"Trial medals / min",currency:"Trial medals",shops:["Trial"]},
+    {key:"devourer",label:"Devourer coins / min",currency:"Devourer coins",shops:["Devourer"]}
   ];
   const minuteRatesForColumn = (item,shops,column) => {
     if(!(item.speedupMinutes>0))return [];
@@ -411,7 +417,8 @@
         '<strong class="mono">'+fmtMinuteRate(points/Number(o.price))+'</strong>'+currencyIcon(o.currency)+'</div>'+
         (bonus>0?'<span class="research-bonus">+'+fmtMinuteRate(bonus/Number(o.price))+' pts / currency</span>':'')+
         '<span class="wide-rate-shop">'+esc(o.shop+(o.minVip!=null?' VIP '+o.minVip:'')+(locked?' (locked)':'')+
-          (o.evidence==='reported'?' (reported)':o.evidence==='edited'?' (edited)':''))+'</span></div>';
+          (o.evidence==='reported'?' (reported)':o.evidence==='edited'?' (edited)':'')+
+          (o.shop==="Devourer"&&o.limit===0?' (sold out)':''))+'</span></div>';
     }).join("")+'</td>';
   };
   const normalizedDayPointsCsv = (item,shops,day) => {
@@ -551,7 +558,7 @@
       '<div class="wide-level-controls"><label for="wide-base-level">Base level</label><select id="wide-base-level" aria-label="Base level for Hero EXP chest values">'+
       selectOptions(Array.from({length:heroExp.maxBaseLevel},(_,i)=>({value:i+1,label:"Level "+(i+1)})),state.baseLevel)+
       '</select><button class="btn ghost" id="wide-download">Download CSV</button></div></div>'+
-      '<p class="note">Each item appears once, with prices from all five shops in separate columns. Amounts are the listed price for the offered quantity; an empty location means it was not observed, not that it is free. The three Cost/min columns divide each shop price by the minutes purchased. Click a Cost/min header to sort numerically (lowest first; click again to reverse). Diamond and VIP shop rates share a column and retain their shop labels. Missing rates always sort last; VIP-locked offers remain visible. Instant-rate break-even is the estimated timer length where the instant diamond price per minute declines to the shop speedup rate. Below it, the shop has the cheaper cost/min; above it, instant completion is cheaper per minute. These are rate comparisons, not the diamonds required to finish one short queue. Non-diamond instant-rate comparisons require any previously saved personal currency-equivalent settings. The Cost per Conductive Crystal column calculates the price of one crystal from 16 Heat-Resistant Gold, 4 Composite Materials, or 1 direct crystal; prices remain in their original shop currencies and use per-unit pricing for bundles. <strong>Alliance Competition:</strong> Six days each show base points awarded when an offer\'s item is actually used in an eligible event action, plus points per original shop currency spent (multiple offers retain separate labels and icons). The six days are alternatives for a single-use item, not scores that can be summed. Use each day\'s Points header to sort by raw points or choose a currency icon in the Points / currency header to sort by that currency\'s best unrounded offer ratio (highest first; click again to reverse). Missing prices and ineligible items sort last, and all currencies stay displayed. Speedups earn 55 points per minute on eligible days; any leftover timer minutes and configured research buffs are applied to points and currency ratios. <strong>Hero EXP chests:</strong> the selected Base level sets each SR/SSR/UR chest\'s EXP amount, using datamined levels 1–30. On Day 4, spending 650 Hero EXP gives 1 base point; projected chest points and points per diamond (or other currency) update with Base level and applicable research. Buying or opening a chest alone does not award those points, and fractional/server rounding is not confirmed. <a href="https://github.com/JeffxLabs/zrouteredemption/blob/main/data/hero_exp.json" target="_blank" rel="noopener">EXP data ↗</a>. Unquantifiable items display a dash. <a href="https://zrouteguide.com/events/alliance-competition/event-guide/" target="_blank" rel="noopener">Scoring source ↗</a>.</p>'+
+      '<p class="note">Each item appears once, with prices from all six shops in separate columns. Amounts are the listed price for the offered quantity; an empty location means it was not observed, not that it is free. The four Cost/min columns divide each shop price by the minutes purchased. Click a Cost/min header to sort numerically (lowest first; click again to reverse). Diamond and VIP shop rates share a column and retain their shop labels. Missing rates always sort last; VIP-locked offers remain visible. Instant-rate break-even is the estimated timer length where the instant diamond price per minute declines to the shop speedup rate. Below it, the shop has the cheaper cost/min; above it, instant completion is cheaper per minute. These are rate comparisons, not the diamonds required to finish one short queue. Non-diamond instant-rate comparisons require any previously saved personal currency-equivalent settings. Devourer coins are an event currency, not diamonds; the 1,904 shown in the source screenshots was a one-time balance, not an item price. Items labeled sold out retain their listed price only for theoretical value comparison. The Cost per Conductive Crystal column calculates the price of one crystal from 16 Heat-Resistant Gold, 4 Composite Materials, or 1 direct crystal; prices remain in their original shop currencies and use per-unit pricing for bundles. <strong>Alliance Competition:</strong> Six days each show base points awarded when an offer\'s item is actually used in an eligible event action, plus points per original shop currency spent (multiple offers retain separate labels and icons). The six days are alternatives for a single-use item, not scores that can be summed. Use each day\'s Points header to sort by raw points or choose a currency icon in the Points / currency header to sort by that currency\'s best unrounded offer ratio (highest first; click again to reverse). Missing prices and ineligible items sort last, and all currencies stay displayed. Speedups earn 55 points per minute on eligible days; any leftover timer minutes and configured research buffs are applied to points and currency ratios. <strong>Hero EXP chests:</strong> the selected Base level sets each SR/SSR/UR chest\'s EXP amount, using datamined levels 1–30. On Day 4, spending 650 Hero EXP gives 1 base point; projected chest points and points per diamond (or other currency) update with Base level and applicable research. Buying or opening a chest alone does not award those points, and fractional/server rounding is not confirmed. <a href="https://github.com/JeffxLabs/zrouteredemption/blob/main/data/hero_exp.json" target="_blank" rel="noopener">EXP data ↗</a>. Unquantifiable items display a dash. <a href="https://zrouteguide.com/events/alliance-competition/event-guide/" target="_blank" rel="noopener">Scoring source ↗</a>.</p>'+
       window.ZR_RESEARCH_PANEL.render({state,base,competition,research,fmt,esc,selectOptions})+
       '<div class="filterbar wide-filters">'+
       '<div class="field"><label for="wide-search">Search items</label><input id="wide-search" placeholder="UR Omni Hero Shard…" value="'+esc(state.wideSearch)+'"></div>'+
@@ -559,11 +566,11 @@
       selectOptions(["All",...new Set(base.items.map(i=>i.category))],state.wideCategory)+'</select></div>'+
       '<div class="field"><label for="wide-scope">Show</label><select id="wide-scope">'+
       selectOptions([{value:"all",label:"All items"},{value:"multi",label:"In 2+ shops"}],state.wideScope)+'</select></div></div>'+
-      '<p class="notice">'+rows.length+' items shown · '+allOffers().length+' source offers · prices are not currency-converted</p>'+
+      '<p class="notice">'+rows.length+' items shown · '+allOffers().length+' source offers · prices are not currency-converted · Devourer balance snapshot: '+fmt(base.shops.find(s=>s.id==="Devourer")?.balanceObserved)+' on 14 Oct 2026 (not live)</p>'+
       '<div class="table-wrap wide-scroll" id="wide-scroll"><table class="wide-table" id="wide-table">'+
       '<thead><tr><th scope="col" aria-sort="'+(itemSortActive?(state.wideSortDirection==="asc"?"ascending":"descending"):"none")+'">'+itemSortButton+'</th>'+head+rateHead+wideBreakHeading()+'<th scope="col" class="wide-crystal-heading" title="Crystal-equivalent unit cost: 16 Heat-Resistant Gold, 4 Composite Materials, or 1 Conductive Crystal">Cost per Conductive Crystal</th><th scope="col" class="wide-exp-heading" title="Hero EXP granted per chest at the selected Base level">Hero EXP / chest</th>'+dayHead+'</tr></thead><tbody>'+
-      (body||'<tr><td colspan="24" class="empty">No matching items</td></tr>')+'</tbody></table></div>'+
-      '<p class="notice">— = item not listed in that shop · "Price unknown" = listing exists but its price could not be read · "for N units" indicates a bundle. "Reported price" flags figures not independently verified in a screenshot. CSV includes separate quantity, VIP requirement, and three currency-specific cost-per-minute columns. Queue speedups only—protective shields and stamina are not speedups. Rate parity is extrapolated from the observed power-law formula (verified only through about 30 hours). Multi-day or multi-year estimates are highly uncertain. Actual diamond rounding may shift the estimated crossover by minutes. Crystal-equivalent prices reflect crafting inputs only and do not assign a cost to crafting time or other requirements. Alliance Competition rates use each offer\'s entire purchased quantity and price; diamond and VIP offers are separate entries in the same currency. Scores are based on the community guide and require using the item on the specified day. Known configured tech bonuses are included; unknown tech effects, special actions, variable Hero EXP chest rewards, and points from future construction/research completion are not included. The CSV includes all twelve day-specific fields.</p></section>';
+      (body||'<tr><td colspan="26" class="empty">No matching items</td></tr>')+'</tbody></table></div>'+
+      '<p class="notice">— = item not listed in that shop · "Price unknown" = listing exists but its price could not be read · "for N units" indicates a bundle. "Reported price" flags figures not independently verified in a screenshot. CSV includes separate quantity, VIP requirement, and four currency-specific cost-per-minute columns. Queue speedups only—protective shields and stamina are not speedups. Rate parity is extrapolated from the observed power-law formula (verified only through about 30 hours). Multi-day or multi-year estimates are highly uncertain. Actual diamond rounding may shift the estimated crossover by minutes. Crystal-equivalent prices reflect crafting inputs only and do not assign a cost to crafting time or other requirements. Alliance Competition rates use each offer\'s entire purchased quantity and price; diamond and VIP offers are separate entries in the same currency. Scores are based on the community guide and require using the item on the specified day. Known configured tech bonuses are included; unknown tech effects, special actions, and points from future construction/research completion are not included. The CSV includes all twelve day-specific fields.</p></section>';
   }
 
 

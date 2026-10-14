@@ -21,10 +21,10 @@ const sandbox = {
 };
 vm.runInNewContext(text("data/shop-data.js"), sandbox, {filename: "shop-data.js"});
 const {items, offers, shops} = sandbox.window.ZR_DATA;
-assert.equal(shops.length, 5);
-assert.equal(offers.length, 77);
-assert.equal(items.length, 52); // one native sprite tile per unique item
-assert.deepEqual(Array.from(items.map(item => item.iconIndex)),Array.from({length:52},(_,i)=>i));
+assert.equal(shops.length, 6);
+assert.equal(offers.length, 90);
+assert.equal(items.length, 59); // 52 original sprite tiles + 7 Devourer icon tiles
+assert.deepEqual(Array.from(items.map(item => item.iconIndex)),Array.from({length:59},(_,i)=>i));
 assert.equal(new Set(offers.map(x => x.id)).size, offers.length);
 const knownItems = new Set(items.map(x => x.id));
 for (const o of offers) {
@@ -33,6 +33,25 @@ for (const o of offers) {
   assert(o.price === null || (Number.isFinite(o.price) && o.price >= 0), "Bad price");
   assert(Number.isFinite(o.quantity) && o.quantity > 0, "Bad quantity");
 }
+// Screenshot-derived Devourer shop data: left-hand 1,904 is the player's balance, not the price.
+const devourer=offers.filter(o=>o.shop==="Devourer");
+assert.equal(devourer.length,13);
+assert.equal(shops.find(s=>s.id==="Devourer").currency,"Devourer coins");
+assert.equal(shops.find(s=>s.id==="Devourer").balanceObserved,1904);
+const dev=(id)=>devourer.find(o=>o.item===id);
+for(const [id,price,qty,remaining] of [
+  ["gold_ticket",80,1,10],["blue_ticket",80,1,30],
+  ["ssr_metal_lv_chest",160,1,50],["ssr_food_lv_chest",160,1,50],
+  ["ssr_oil_lv_chest",160,1,100],["research_data",200,10,50],
+  ["fighter_part",200,1,50],["fighter_chest_3",360,1,3],
+  ["research_5m",4,1,100],["build_5m",4,1,50],
+  ["purple_coil",8,1,300],["metal_disc",100,50,100],["stamina_50",10,1,0]
+]){
+  assert.equal(dev(id).price,price,"Devourer price: "+id);
+  assert.equal(dev(id).quantity,qty,"Devourer quantity: "+id);
+  assert.equal(dev(id).limit,remaining,"Devourer remaining: "+id);
+}
+assert(offers.every(o=>o.shop!=="Devourer"||o.currency==="Devourer coins"));
 const relocate = item => offers.filter(o => o.item === item).map(o => o.shop);
 assert.deepEqual(Array.from(relocate("purple_reloc_alt")).sort(), ["Alliance", "Diamond", "VIP"]);
 assert.deepEqual(Array.from(relocate("blue_reloc_flag")).sort(), ["Alliance", "Diamond"]);
@@ -76,8 +95,10 @@ assert.equal(official.speed_5m.speedupMinutes,5);
 assert.equal(official.vip_3h.speedupMinutes,180);
 assert.equal(official.universal_1h.speedupMinutes,60);
 assert.equal(official.universal_8h.speedupMinutes,480);
-assert.equal(items.filter(i => i.speedupMinutes != null).length,12);
+assert.equal(items.filter(i => i.speedupMinutes != null).length,14);
 assert.equal(official.shield_24h.speedupMinutes,null);
+assert.equal(official.build_5m.speedupMinutes,5);
+assert.equal(official.research_5m.speedupMinutes,5);
 assert.equal(official.dark_cans_10.speedupMinutes,null);
 
 vm.runInNewContext(text("data/hero-exp.js"), sandbox, {filename: "hero-exp.js"});
@@ -115,6 +136,11 @@ assert.equal(score("train_8h",6),26400);
 assert.equal(score("heal_8h",5),null);
 assert.equal(score("heal_8h",6),26400);
 assert.equal(score("fighter_part",1),2600);
+assert.equal(score("stamina_50",1,"Devourer"),7750);
+assert.equal(score("build_5m",2,"Devourer"),275);
+assert.equal(score("research_5m",3,"Devourer"),275);
+assert.equal(score("build_5m",3,"Devourer"),null);
+assert.equal(score("research_5m",2,"Devourer"),null);
 assert.equal(score("card_10k",1,"Trial"),40000); // 10k-chip bundle, 4 points each
 assert.equal(score("dark_cans_10",1,"VIP"),1550); // 10 stamina x 155
 assert.equal(score("blue_ticket",2),1600);
@@ -199,27 +225,27 @@ assert.match(rendered(), /id="wide-scroll"/);
 assert.match(rendered(), /Wide price table/);
 assert.match(rendered(), /id="wide-table"/);
 assert.match(rendered(), /id="wide-download"/);
-for (const label of ["Diamonds / min","Alliance coins / min","Trial medals / min"]) {
+for (const label of ["Diamonds / min","Alliance coins / min","Trial medals / min","Devourer coins / min"]) {
   assert(rendered().includes(label),"Missing currency-specific rate header: "+label);
 }
-assert.equal((rendered().match(/data-wide-sort=/g)||[]).length,35); // 5 old sorts + 6 x (points + 4 currencies)
+assert.equal((rendered().match(/data-wide-sort=/g)||[]).length,42); // 6 existing sortable columns + 6 days × (points + 5 currencies)
 for(let day=1;day<=6;day++){
   assert(rendered().includes('data-wide-sort="day'+day+'-points"'),"Missing points sort for day "+day);
-  for(const currency of ["diamonds","alliance","trial","honor"]){
+  for(const currency of ["diamonds","alliance","trial","honor","devourer"]){
     const key='day'+day+'-'+currency;
     assert(rendered().includes('data-wide-sort="'+key+'"'),"Missing per-currency sort "+key);
   }
 }
 assert.match(rendered(), /Instant-rate break-even/);
 assert.match(rendered(), /Cost per Conductive Crystal/);
-assert.equal((rendered().match(/data-wide-item=/g)||[]).length,52);
-for (const label of ["Alliance coins","Diamond shop","VIP shop","Trial medals","Honor medals"]) {
+assert.equal((rendered().match(/data-wide-item=/g)||[]).length,59);
+for (const label of ["Alliance coins","Diamond shop","VIP shop","Trial medals","Honor medals","Devourer coins"]) {
   assert(rendered().includes(label), "Missing original shop column "+label);
 }
 const getWideRow = item => rendered().split('data-wide-item="'+item+'"')[1]?.split('</tr>')[0] ?? "";
 const wideCells = item => [...getWideRow(item).matchAll(/<td[^>]*>([\s\S]*?)<\/td>/g)].map(m=>m[1]);
 
-const crystalCell=id=>wideCells(id)[9];
+const crystalCell=id=>wideCells(id)[11];
 assert(crystalCell("blue_hex").includes("wide-crystal-entry"));
 assert(crystalCell("blue_hex").includes('>800</strong>') &&
        crystalCell("blue_hex").includes('>80</strong>') &&
@@ -239,32 +265,41 @@ assert(crystalCell("logs").includes('>800</strong>') &&
        crystalCell("logs").includes("×1"),
        "Direct Conductive Crystal prices should stay unchanged, including VIP 9 gate");
 assert.equal(crystalCell("hero_gold").trim(),"—");
+assert(crystalCell("purple_coil").includes('>32</strong>') && crystalCell("purple_coil").includes('aria-label="Devourer coins"'),"4 × 8 = 32 Devourer coins / crystal");
 const heroWideRow=getWideRow("hero_gold");
 assert(heroWideRow,"Missing UR Omni Hero Shard");
-assert.equal(wideCells("hero_gold").length,23); // 11 prior columns + 6 daily point/rate pairs
+assert.equal(wideCells("hero_gold").length,25); // 13 prior columns + 6 daily point/rate pairs
 assert(heroWideRow.includes("3,000") && heroWideRow.includes("VIP 11 · locked"));
 assert(heroWideRow.includes("wide-empty") && heroWideRow.includes('wide-amount mono">200'));
 const c1=wideCells("build_1h"), c8=wideCells("build_8h");
-assert(c1[6].includes('>15</span>') && c1[6].includes('aria-label="Alliance coins"'),
+assert(c1[7].includes('>15</span>') && c1[7].includes('aria-label="Alliance coins"'),
   "1-hour construction costs 15 Alliance coins/min");
-assert(c8[6].includes('>12.5</span>'),"8-hour construction costs 12.5 Alliance coins/min");
-assert(c1[5].trim()==="—" && c1[7].trim()==="—","Absent currency rates should be blank");
+assert(c8[7].includes('>12.5</span>'),"8-hour construction costs 12.5 Alliance coins/min");
+assert(c1[6].trim()==="—" && c1[8].trim()==="—","Absent currency rates should be blank");
+const devBuild=wideCells("build_5m");
+const devResearch=wideCells("research_5m");
+assert(devBuild[9].includes('>0.8</span>') && devBuild[9].includes('aria-label="Devourer coins"'));
+assert(devResearch[9].includes('>0.8</span>'));
+assert(wideCells("metal_disc")[5].includes("for 50 units"));
+assert(wideCells("research_data")[5].includes("for 10 units"));
+assert(wideCells("stamina_50")[5].includes("sold out (0 remaining)"));
+assert(getWideRow("research_data").includes("item-icon-devourer"));
 const fiveMinute=wideCells("speed_5m");
-assert(fiveMinute[5].includes('>1.6</span>') && fiveMinute[5].includes('aria-label="Diamonds"'),"5-minute speedup diamond rate");
-assert(fiveMinute[6].includes('>15</span>') && fiveMinute[6].includes('aria-label="Alliance coins"'),"5-minute speedup Alliance rate");
-assert.equal(fiveMinute[7].trim()==="—",true);
-assert(fiveMinute[8].includes("22d 9h 3m") && fiveMinute[8].includes("1.6 ◇/min"),
+assert(fiveMinute[6].includes('>1.6</span>') && fiveMinute[6].includes('aria-label="Diamonds"'),"5-minute speedup diamond rate");
+assert(fiveMinute[7].includes('>15</span>') && fiveMinute[7].includes('aria-label="Alliance coins"'),"5-minute speedup Alliance rate");
+assert.equal(fiveMinute[8].trim()==="—",true);
+assert(fiveMinute[10].includes("22d 9h 3m") && fiveMinute[10].includes("1.6 ◇/min"),
   "VIP 5-minute rate parity must occur at ~22 days, not after 2 minutes");
 const oneHour=wideCells("universal_1h");
-assert(oneHour[5].includes('>1.2</span>') && oneHour[7].includes('>8.333</span>'),"Universal 1h rate comparisons");
-assert(oneHour[8].includes("397d 8h 45m"),"VIP 1h rate parity");
+assert(oneHour[6].includes('>1.2</span>') && oneHour[8].includes('>8.333</span>'),"Universal 1h rate comparisons");
+assert(oneHour[10].includes("397d 8h 45m"),"VIP 1h rate parity");
 const threeHour=wideCells("vip_3h");
-assert(threeHour[5].includes('>1.067</span>') && threeHour[5].includes('VIP 8 (locked)'),
+assert(threeHour[6].includes('>1.067</span>') && threeHour[6].includes('VIP 8 (locked)'),
   "VIP 8 3-hour speedup rate and gate");
-assert(wideCells("vip_3h")[8].includes("1,290d"),"VIP 3h rate parity");
-assert(wideCells("universal_8h")[8].includes("2,460d 9h"),"VIP 8h rate parity");
+assert(wideCells("vip_3h")[10].includes("1,290d"),"VIP 3h rate parity");
+assert(wideCells("universal_8h")[10].includes("2,460d 9h"),"VIP 8h rate parity");
 for(const notSpeedup of ["shield_8h","dark_cans_10"]){
-  assert(wideCells(notSpeedup).slice(5,10).every(cell=>cell.trim()==="—"),"Non-speedup time-rate cells must be blank");
+  assert(wideCells(notSpeedup).slice(6,12).every(cell=>cell.trim()==="—"),"Non-speedup time-rate cells must be blank");
 }
 // The original columns remain in the same positions; 6 daily pairs follow crystal cost.
 assert.match(text("index.html"),/data\/alliance-competition\.js/);
@@ -272,13 +307,13 @@ for(let day=1;day<=6;day++){
   assert(rendered().includes('Day '+day+' ('+event.days[day-1].weekday+')'),"Missing day header "+day);
   assert(rendered().includes("Points / currency"),"Missing per-currency heading");
 }
-const expCell=id=>wideCells(id)[10];
+const expCell=id=>wideCells(id)[12];
 assert(expCell("xp_chest_blue").includes("468,000"));
 assert(expCell("xp_chest_purple").includes("3,744,000"));
 assert(expCell("xp_chest_brown").includes("11,232,000"));
 assert.equal(expCell("hero_gold").trim(),"—");
-const dayPoints=(id,day)=>wideCells(id)[11+(day-1)*2];
-const dayRates=(id,day)=>wideCells(id)[12+(day-1)*2];
+const dayPoints=(id,day)=>wideCells(id)[13+(day-1)*2];
+const dayRates=(id,day)=>wideCells(id)[14+(day-1)*2];
 for(const day of [2,3,5,6]){
   assert(dayPoints("speed_5m",day).includes(">275</strong>"),"5m speedup is 275 pts on day "+day);
   assert(dayRates("speed_5m",day).includes(">34.375</strong>") &&
@@ -292,6 +327,13 @@ assert(dayRates("card_10k",1).includes(">40</strong>")); // 40k points / 1k Tria
 assert(dayPoints("dark_cans_10",1).includes(">1,550</strong>"));
 assert(dayRates("dark_cans_10",1).includes(">43.056</strong>")); // 1550 / 36 reported diamonds
 assert(dayPoints("fighter_part",1).includes(">2,600</strong>"));
+assert(dayPoints("stamina_50",1).includes(">7,750</strong>"));
+assert(dayRates("stamina_50",1).includes(">775</strong>"));
+assert(dayRates("stamina_50",1).includes("(sold out)"));
+assert(dayRates("build_5m",2).includes(">68.75</strong>"));
+assert(dayRates("research_5m",3).includes(">68.75</strong>"));
+assert(dayRates("fighter_chest_3",3).includes(">29.167</strong>"));
+assert(dayRates("gold_ticket",4).includes(">20</strong>"));
 assert(dayPoints("fighter_chest_3",3).includes(">10,500</strong>"));
 assert(dayPoints("hero_gold",4).includes(">10,500</strong>"));
 assert(dayPoints("purple_puzzle",4).includes(">3,600</strong>"));
@@ -342,7 +384,7 @@ assert.equal(lastPageScroll.top,685,"Page scroll position should survive sorting
 assert(focusPreserved,"Sorting should restore focused header without scrolling it into view");
 assert(rendered().includes('aria-sort="ascending"'));
 assert.equal(visibleRows()[0],"build_8h"); // 12.5 coins/min, first of tied 8h speeds
-assert(wideCells(visibleRows().at(-1)).slice(5).every(cell=>cell.trim()==="—"),"No-rate items must sort last");
+assert(wideCells(visibleRows().at(-1)).slice(6).every(cell=>cell.trim()==="—"),"No-rate items must sort last");
 clickSort("alliance");
 assert(rendered().includes('aria-sort="descending"'));
 assert.equal(visibleRows()[0],"build_1h"); // 15 coins/min, first of tied 1h speeds
@@ -351,9 +393,11 @@ assert.equal(visibleRows()[0],"universal_8h"); // 1 diamond/min
 assert(rendered().includes('data-wide-sort="diamonds"'));
 clickSort("trial");
 assert.equal(visibleRows()[0],"universal_1h"); // 8.333 trial medals/min
+clickSort("devourer");
+assert.equal(visibleRows()[0],"build_5m"); // 0.8 coins/min, ties Research 5m (alphabetical)
 // Every day/currency combination should sort by its best raw points/currency ratio.
 // Never mix currencies or treat missing quotes / non-scoring items as zero.
-const sortCurrencyNames={diamonds:"Diamonds",alliance:"Alliance coins",trial:"Trial medals",honor:"Honor medals"};
+const sortCurrencyNames={diamonds:"Diamonds",alliance:"Alliance coins",trial:"Trial medals",honor:"Honor medals",devourer:"Devourer coins"};
 const expectedDaySortValue=(id,day,currency)=>{
   const vals=offers.filter(o=>o.item===id && o.price>0 && o.currency===sortCurrencyNames[currency])
     .map(o=>(event.scoreForOffer(official[id],o,day)?.points ?? NaN)/o.price)
@@ -361,7 +405,8 @@ const expectedDaySortValue=(id,day,currency)=>{
   return vals.length?Math.max(...vals):null;
 };
 for(const [day,currency] of [[1,"trial"],[1,"diamonds"],[2,"diamonds"],[2,"alliance"],
-                            [3,"trial"],[4,"honor"],[4,"diamonds"],[5,"diamonds"],[6,"alliance"]]){
+                            [3,"trial"],[3,"devourer"],[4,"honor"],[4,"diamonds"],[4,"devourer"],
+                            [5,"diamonds"],[5,"devourer"],[6,"alliance"],[6,"devourer"]]){
   const key="day"+day+"-"+currency;
   clickSort(key);
   assert(rendered().includes('data-wide-sort="'+key+'" aria-label="Sort Day '+day),
@@ -379,6 +424,14 @@ for(const [day,currency] of [[1,"trial"],[1,"diamonds"],[2,"diamonds"],[2,"allia
   assert(rendered().includes('aria-pressed="true"'),"Selected currency sort button should be visibly active");
   assert(rendered().includes('aria-sort="descending"'),"Day rate should default highest first");
 }
+clickSort("day1-devourer");
+assert.equal(visibleRows()[0],"stamina_50","Theoretical 775 points/Devourer coin at the sold-out Stamina listing");
+clickSort("day2-devourer");
+assert.equal(visibleRows()[0],"build_5m","275 / 4 = 68.75 points per Devourer coin");
+clickSort("day3-devourer");
+assert.equal(visibleRows()[0],"research_5m","275 / 4 = 68.75 points per Devourer coin");
+clickSort("day4-devourer");
+assert.equal(visibleRows()[0],"gold_ticket","1600 / 80 = 20 points per Devourer coin");
 clickSort("day2-alliance");
 assert.equal(visibleRows()[0],"build_8h","4.4 points/Alliance coin should outrank 3.667 from 5-minute speedups");
 const beforeReverse=visibleRows()[0];
@@ -400,7 +453,7 @@ assert.equal(lastPageScroll.top,685);
 handlers.change({target:{id:"wide-base-level",value:"21",dataset:{}}});
 assert(dayRates("xp_chest_brown",4).includes(">36</strong>"));
 handlers.change({target:{id:"alliance-assumption",value:"80",dataset:{rate:"Alliance"}}});
-assert(wideCells("build_1h")[8].includes("397d 8h 45m") && wideCells("build_1h")[8].includes("modeled"),
+assert(wideCells("build_1h")[10].includes("397d 8h 45m") && wideCells("build_1h")[10].includes("modeled"),
   "User-supplied Alliance conversion should generate a labeled break-even time");
 
 const vipGold=offers.find(o=>o.item==="blue_hex"&&o.shop==="VIP");

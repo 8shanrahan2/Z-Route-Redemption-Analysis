@@ -169,6 +169,12 @@ footer a{text-decoration:none}
 .wide-exp-cell .wide-rate-shop{display:block;white-space:nowrap;font-size:11px;color:var(--muted)}
 @media(max-width:620px){.wide-level-controls{width:100%;justify-content:flex-start}.wide-level-controls .btn{margin-left:auto}}
 
+/* Seven screenshot-derived Devourer event item icons, 52 x 52 pixels in one row. */
+.item-icon-devourer{background-image:url("./devourer-item-icons.webp");background-size:364px 52px}
+.wide-table .item-name-wrap .item-icon.item-icon-devourer{background-size:364px 52px}
+/* Currency icon cropped directly from the Defeat the Devourers exchange screen. */
+.currency-icon-devourer{background-image:url("./devourer-coin.webp");background-size:28px 28px;background-position:0 0}
+@media(max-width:620px){.wide-table .item-name-wrap .item-icon.item-icon-devourer{background-size:364px 52px}}
 /* Cost per queue-speedup minute, aggregated across all listed shops. */
 .wide-table{min-width:1190px}
 .wide-table thead th.wide-crystal-heading{width:244px}

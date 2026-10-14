@@ -5,7 +5,9 @@ window.ZR_DATA = (() => {
     {id:"Alliance", currency:"Alliance coins", reset:"Weekly (Monday)", order:1},
     {id:"VIP", currency:"Diamonds", reset:"Weekly (Monday)", order:2},
     {id:"Trial", currency:"Trial medals", reset:"Weekly (Monday)", order:3},
-    {id:"Honor", currency:"Honor medals", reset:"Monthly", order:4}
+    {id:"Honor", currency:"Honor medals", reset:"Monthly", order:4},
+    {id:"Devourer", currency:"Devourer coins", reset:"Event (unverified)", order:5,
+      balanceObserved:1904, balanceObservedOn:"2026-10-14"}
   ];
   const itemRows = [
     ["blue_ticket","Survivor Recruit Ticket","Survivors","confirmed"],
@@ -59,7 +61,14 @@ window.ZR_DATA = (() => {
     ["fighter_chest_3","Lv.3 Fighter Component Chest","Fighter","confirmed"],
     ["card_10k","Combat Chip","Fighter","confirmed"],
     ["orange_map","UR Gear Blueprint","Gear","confirmed"],
-    ["orange_chest","UR Decoration Chest","Decorations","confirmed"]
+    ["orange_chest","UR Decoration Chest","Decorations","confirmed"],
+    ["research_5m","5-min Research Speedup","Boosts","confirmed"],
+    ["build_5m","5-min Build Speedup","Boosts","confirmed"],
+    ["ssr_metal_lv_chest","SSR Metal Lv. Chest","Resources","confirmed"],
+    ["ssr_food_lv_chest","SSR Food Lv. Chest","Resources","confirmed"],
+    ["ssr_oil_lv_chest","SSR Oil Lv. Chest","Resources","confirmed"],
+    ["research_data","Research Data","Resources","confirmed"],
+    ["stamina_50","50 Stamina","Boosts","confirmed"]
   ];
   // Tooltip descriptions transcribed from player-provided screenshots, 2026-10-12.
   const officialDescriptions = {
@@ -95,14 +104,21 @@ window.ZR_DATA = (() => {
     fancy_chest:"Obtained in Glory Trial. Small chance to obtain 100 UR Omni Hero Shards.",
     card_10k:"Enhances Sky Fighter algorithm progress.",
     orange_map:"Key material for promoting UR gear to 1–4 stars. Promotion unlocks after UR gear reaches Lv.40.",
-    orange_chest:"Random item: Gold Lion, Gold Wolf, Gold Eagle, Clock Tower, Merry-Go-Round, Arcade Memorial Wall, or Mini Golf Course."
+    orange_chest:"Random item: Gold Lion, Gold Wolf, Gold Eagle, Clock Tower, Merry-Go-Round, Arcade Memorial Wall, or Mini Golf Course.",
+    research_5m:"Research-specific 5-minute speedup, not a universal speedup.",
+    build_5m:"Construction-specific 5-minute speedup, not a universal speedup.",
+    ssr_metal_lv_chest:"SSR Metal Lv. Chest; actual resources per chest not verified.",
+    ssr_food_lv_chest:"SSR Food Lv. Chest; actual resources per chest not verified.",
+    ssr_oil_lv_chest:"SSR Oil Lv. Chest; actual resources per chest not verified.",
+    research_data:"Bundle of 10 Research Data in the Devourer event shop.",
+    stamina_50:"Provides 50 Stamina when used; Devourer event listing was sold out (0/3) in the screenshot."
   };
   // Only actual queue speedups have a time denominator; shields, stamina, etc. do not.
   // Durations are minutes PER speedup item, separate from offer.quantity (pack size).
   const speedupMinutesById = {
     build_8h:480, research_8h:480, train_8h:480, heal_8h:480,
     build_1h:60, research_1h:60, train_1h:60, heal_1h:60,
-    speed_5m:5, universal_1h:60, vip_3h:180, universal_8h:480
+    speed_5m:5, research_5m:5, build_5m:5, universal_1h:60, vip_3h:180, universal_8h:480
   };
   // iconIndex matches the 52-tile sprite order in assets/item-icons.webp (8 columns, 52px tiles).
   const items = itemRows.map((r,iconIndex) => ({id:r[0],name:r[1],category:r[2],confidence:r[3],iconIndex,
@@ -187,6 +203,21 @@ window.ZR_DATA = (() => {
     ["purple_coil","Honor",200,1,450,null,"H10"],
     ["decor_exchange","Honor",200,1,200,null,"H10"],
     ["honor_blue_crate","Honor",4000,1,120,null,"H10"],
+    // Defeat the Devourers event exchange screenshots, 14 Oct 2026.
+    // Each 1904/x in the UI is the player's 1,904-coin balance / x-coin OFFER price.
+    ["gold_ticket","Devourer",80,1,10,null,"DV14-3"],
+    ["blue_ticket","Devourer",80,1,30,null,"DV14-3"],
+    ["ssr_metal_lv_chest","Devourer",160,1,50,null,"DV14-3"],
+    ["ssr_food_lv_chest","Devourer",160,1,50,null,"DV14-3"],
+    ["ssr_oil_lv_chest","Devourer",160,1,100,null,"DV14-3"],
+    ["research_data","Devourer",200,10,50,null,"DV14-3","screenshot","Displayed pack contains 10 Research Data."],
+    ["fighter_part","Devourer",200,1,50,null,"DV14-2"],
+    ["fighter_chest_3","Devourer",360,1,3,null,"DV14-1/2"],
+    ["research_5m","Devourer",4,1,100,null,"DV14-1/2"],
+    ["build_5m","Devourer",4,1,50,null,"DV14-1/2"],
+    ["purple_coil","Devourer",8,1,300,null,"DV14-1/2"],
+    ["metal_disc","Devourer",100,50,100,null,"DV14-1/2","screenshot","Displayed pack contains 50 Refined Stones."],
+    ["stamina_50","Devourer",10,1,0,null,"DV14-1","screenshot","Sold out: displayed remaining 0 of 3. Price remains visible as 10 Devourer coins."]
   ];
   const offers = rows.map((r,i) => ({
     id:"offer-"+String(i+1).padStart(3,"0"), item:r[0], shop:r[1],
@@ -194,5 +225,5 @@ window.ZR_DATA = (() => {
     limit:r[4], minVip:r[5], source:r[6],
     evidence:r[7]||"screenshot", note:r[8]||""
   }));
-  return {version:1,observed:"2026-10-12",shops,items,offers};
+  return {version:1,observed:"2026-10-14",shops,items,offers};
 })();

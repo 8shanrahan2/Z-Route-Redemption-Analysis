@@ -18,6 +18,7 @@ window.ZR_ALLIANCE_COMPETITION = (() => {
   // Match only actions verified by the stage task list and the item's official tooltip.
   const actions = {
     dark_cans_10:{1:{points:1550,task:"Use all 10 Stamina (155 per stamina)"}},
+    stamina_50:{1:{points:7750,task:"Use all 50 Stamina (155 per stamina)"}},
     fighter_part:{1:{points:2600,task:"Use 1 Fighter Part"}},
     card_10k:{1:{points:4,task:"Use 1 Fighter Combat Chip (4 points per chip)"}},
     blue_ticket:{2:{points:1600,task:"Recruit 1 Survivor"}},

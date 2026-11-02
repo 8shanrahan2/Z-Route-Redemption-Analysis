@@ -2,13 +2,14 @@
 <html lang="en">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="description" content="Experimental Z Route: Redemption two-squad combat lab. Compare heroes and test explicit combat hypotheses using JeffxLabs client facts.">
-<title>Z Route · Combat Lab</title><link rel="icon" href="icon.svg" type="image/svg+xml"><link rel="stylesheet" href="style.css?v=0.4"></head>
+<title>Z Route · Combat Lab</title><link rel="icon" href="icon.svg" type="image/svg+xml"><link rel="stylesheet" href="style.css?v=0.5"></head>
 <body>
-<header><a class="brand" href="#"><span class="mark">Z<span>R</span></span><span>Z ROUTE<small>COMBAT LAB</small></span></a><div class="header-right"><span class="status-dot"></span> RESEARCH BUILD <span class="version">v0.4</span></div></header>
+<header><a class="brand" href="#"><span class="mark">Z<span>R</span></span><span>Z ROUTE<small>COMBAT LAB</small></span></a><div class="header-right"><span class="status-dot"></span> RESEARCH BUILD <span class="version">v0.5</span></div></header>
 <main>
 <div class="intro"><div><div class="eyebrow">Z ROUTE: REDEMPTION / MATCHUP SANDBOX</div><h1>Power doesn’t tell<br>the whole story<span>.</span></h1><p>Build two squads. Test the matchup. Find out what matters.</p></div><div class="intro-note"><span class="tag">EXPERIMENTAL MODEL</span><p>Editable skills. Equipped gear. Two real battle samples.<br>The damage model remains an uncalibrated estimate.</p><a href="#research">See what’s known ↗</a></div></div>
 <div class="toolbar"><span><span class="status-dot"></span> <span id="save-status">Saved on this device</span></span><div><button id="swap" class="quiet">⇄ Swap sides</button><button id="export" class="quiet">Export JSON ↓</button><label class="button quiet">Import JSON ↑<input id="import" type="file" accept=".json,application/json" hidden></label><button id="reset" class="quiet">Reset demo</button></div></div>
 <p id="message" role="status" aria-live="polite"></p>
+<section class="panel" id="battle-context" aria-label="Battle conditions"></section>
 <div class="workspace"><div class="squads" id="squads"></div>
 <aside><section class="panel result-panel"><div class="eyebrow">MATCHUP ESTIMATE</div><div id="result"><h2>The field is set.</h2><p>Run a sample battle to compare these squads under the current model.</p><div class="versus"><b>A</b><span>VS</span><b>B</b></div></div><button id="run" class="primary">Run matchup <span>↗</span></button><p class="fine">One seeded battle + 24 trial seeds. Trial counts describe this model, not real-world win probability.</p></section>
 <section class="panel"><div class="eyebrow">QUICK READ</div><h3>Five heroes. One lineup.</h3><p>3 matching factions: +5%<br>3 + 2 split: +10%<br>4 matching: +15%<br>5 matching: +20%</p><div class="triangle">Warrior → Assault → Tactical → Warrior</div><p class="fine">The countered faction deals 20% less damage to the faction that counters it.</p></section></aside></div>
@@ -29,5 +30,5 @@
 <footer><span>Z ROUTE / COMBAT LAB</span><span>Unofficial research tool · Original artwork belongs to its game owners.</span><span>No account connection. Data stays in this browser.</span></footer>
 </main>
 <dialog id="editor" aria-labelledby="editor-title"><form id="hero-form"><div class="section-heading"><div><div class="eyebrow" id="slot-label"></div><h2 id="editor-title">Configure hero</h2></div><button id="close-editor" type="button" class="quiet" aria-label="Close hero editor">✕</button></div><div id="editor-fields"></div><button class="primary" type="submit">Apply hero <span>✓</span></button></form></dialog>
-<script type="module" src="app.mjs?v=0.4"></script>
+<script type="module" src="app.mjs?v=0.5"></script>
 </body></html>

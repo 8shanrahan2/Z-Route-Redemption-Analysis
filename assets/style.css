@@ -301,6 +301,7 @@ footer a{text-decoration:none}
 .research-day-details th,.research-day-details td{font-size:11px;padding:6px;text-align:right}
 .research-day-details th:first-child,.research-day-details td:first-child{text-align:left}
 .wide-item-label{font-weight:700}
+.combat-frame{width:100%;height:85vh;min-height:650px;border:1px solid var(--border);border-radius:10px;background:#101512}.combat-workspace{min-width:0}.tabs{flex-wrap:wrap}
 @media(max-width:620px){
   .research-settings-body{padding:12px}
   .research-tech-grid,.research-day-grid{grid-template-columns:minmax(0,1fr)}

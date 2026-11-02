@@ -1,8 +1,9 @@
+import {battleContext,scenarios,fighterStats,researchEffects,troopStats,benefitRule} from './configuration.mjs?v=0.5';
 export const defaults = {shieldScale:10, shieldAbsorb:80, soldierHP:0.1, soldierATK:0.001,
   critChance:5, critDamage:150, damageScale:1, firstCast:1, duration:120, perHit:true, seed:42};
 export const statKeys = ['hp','attack','defense'];
 export const boostSources={decoration:'Decorations / statues',decorBuff:'Decor buffs',fighter:'Fighter buffs',component:'Fighter components',hallOfFame:'Hall of Fame',tech:'Technology',gear:'Hero gear'};
-export const boostStats={hp:'HP',attack:'ATK',defense:'DEF',critChance:'Critical chance (points)',critDamage:'Critical damage (points)',physical:'Physical damage',radiation:'Radiation damage',resist:'Damage reduction',speed:'Cooldown speed'};
+export const boostStats={hp:'HP',attack:'ATK',defense:'DEF',damage:'All damage',critChance:'Critical chance (points)',critDamage:'Critical damage (points)',physical:'Physical damage',radiation:'Radiation damage',resist:'Damage reduction',speed:'Cooldown speed'};
 const cap = (n, lo, hi) => Math.min(hi, Math.max(lo,n));
 const pct = value => parseFloat(value || 0) / 100;
 const sum = rows => Object.fromEntries(statKeys.map((k,i) => [k, rows.find(r=>r.type===10002+i)?.value || 0]));
@@ -58,16 +59,26 @@ export function heroStats(data, hero) {
   // Recovered HeroUtils equation; values remain pinned to this dataset's catalog.
   return Object.fromEntries(statKeys.map(k=>[k,(level[k]+star[k])*ref.base_stats[k]/10000]));
 }
-export function accountStats(data,squad,hero) {
+export function accountStats(data,squad,hero,context=battleContext({},0)) {
   const ref=heroById(data,hero.id),base=heroStats(data,hero),slot=squad.heroes.findIndex(h=>h.id===hero.id);
   const flat=Object.fromEntries(statKeys.map(k=>[k,(squad.fighterMode??'total')==='total'?(squad.fighter?.[k]||0):0]));
-  const percent=Object.fromEntries(statKeys.map(k=>[k,squad.tech[k]+squad.decor[k]]));
+  const percent=Object.fromEntries(statKeys.map(k=>[k,(squad.research?.mode==='nodes'?0:squad.tech[k])+squad.decor[k]]));
   const modifiers=Object.fromEntries(Object.keys(boostStats).filter(k=>!statKeys.includes(k)).map(k=>[k,0]));
   const gear=equipmentStats(data,hero),equipped=usesEquipment(hero);
   if(equipped){for(const k of statKeys){flat[k]+=gear.flat[k];percent[k]+=gear.percent[k];}for(const [k,v] of Object.entries(gear.modifiers))modifiers[k]=(modifiers[k]||0)+v;}
+  const research=researchEffects(data,squad,context),catalogBenefits=[...research.effects];
+  if(squad.fighterMode==='catalog')for(const [type,value] of Object.entries(fighterStats(data,squad).hero)){const rule=benefitRule(+type);if(rule)catalogBenefits.push({...rule,type:+type,value});}
+  for(const e of catalogBenefits){
+    if(e.camp&&e.camp!==ref.camp_type)continue;
+    for(const stat of e.stat==='allStats'?statKeys:[e.stat]){
+      if(statKeys.includes(stat)){if(e.flat)flat[stat]+=e.value;else percent[stat]+=e.value*100;}
+      else if(!stat.startsWith('soldier'))modifiers[stat]=(modifiers[stat]||0)+e.value*100;
+    }
+  }
   const applied=[];
   for(const row of squad.boosts||[]) {
     if(row.source==='gear'&&equipped)continue;
+    if(row.source==='tech'&&squad.research?.mode==='nodes')continue;
     if(!row.enabled||(['fighter','component'].includes(row.source)&&(squad.fighterMode??'total')!=='components'))continue;
     const on=row.target==='all'||row.target===`hero:${hero.id}`||row.target===`camp:${ref.camp_type}`||(row.target==='front'&&slot>=0&&slot<2)||(row.target==='back'&&slot>=2);
     if(!on)continue;
@@ -82,14 +93,14 @@ export function accountStats(data,squad,hero) {
   const passive=Object.fromEntries(statKeys.map(k=>[k,0]));
   if([10005,20009,30004,50007].includes(hero.id))passive.attack=parseFloat(args[0])||0;
   if(hero.id===10008)passive.defense=parseFloat(args[0])||0;
-  const lineupBonus=lineup(data,squad.heroes)*100;
+  const lineupBonus=context.lineup===false?0:lineup(data,squad.heroes)*100;
   // Recovered display grouping keeps gear/fighter/decor flat stats outside growth percentages.
   // ponytail: lineup/talent combat stacking is still combined here; replace with validated battle-source groups when known.
   const stats=Object.fromEntries(statKeys.map(k=>[k,hero.finalStats?base[k]:base[k]*(1+(percent[k]+passive[k]+lineupBonus+talent*100)/100)+flat[k]]));
-  return {stats,base,flat,percent,passive,lineupBonus,talent,modifiers,applied,gear};
+  return {stats,base,flat,percent,passive,lineupBonus,talent,modifiers,applied,gear,research};
 }
-export function combatStats(data,squad,hero,model){
-  const account=accountStats(data,squad,hero),soldiers=hero.finalStats?0:squad.soldierPower/5;
+export function combatStats(data,squad,hero,model,context=battleContext({},0)){
+  const account=accountStats(data,squad,hero,context),soldiers=hero.finalStats?0:troopStats(data,squad,context).power/5;
   const start={hp:account.stats.hp+soldiers*model.soldierHP,attack:account.stats.attack+soldiers*model.soldierATK,defense:account.stats.defense};
   return {...account,start,shield:start.defense*model.shieldScale};
 }
@@ -99,6 +110,10 @@ function number(value,lo,hi,name,integer=false) {
 export function validate(data,state) {
   if(!state||state.version!==1||!Array.isArray(state.squads)||state.squads.length!==2) throw Error('Expected a version 1 matchup with two squads.');
   if(!state.model||!Array.isArray(state.reports)||state.reports.length>500) throw Error('Invalid model or report history (maximum 500 reports).');
+  if(state.battle!==undefined){
+    if(!state.battle||!Object.hasOwn(scenarios,state.battle.scenario))throw Error('Unknown battle scenario.');
+    for(const key of ['squadBonuses','defenses','lineup'])if(typeof state.battle[key]!=='boolean')throw Error('Invalid battle bonus toggle.');
+  }
   for(const s of state.squads) {
     if(typeof s.name!=='string'||s.name.length>60||!Array.isArray(s.heroes)||s.heroes.length!==5) throw Error('Each squad needs a name and five heroes.');
     if(new Set(s.heroes.map(h=>h.id)).size!==5) throw Error('A hero cannot occupy two slots in the same squad.');
@@ -106,7 +121,28 @@ export function validate(data,state) {
     if(s.moraleDamage!==undefined)number(s.moraleDamage,0,1000,'Reported morale damage %');
     if(s.fighter!==undefined)for(const k of statKeys)number(s.fighter[k],0,1e10,`Fighter ${k}`);
     if(s.fighterPower!==undefined)number(s.fighterPower,0,1e10,'Fighter reference power');
-    if(s.fighterMode!==undefined&&!['total','components'].includes(s.fighterMode))throw Error('Choose fighter totals or component rows.');
+    if(s.fighterMode!==undefined&&!['total','components','catalog'].includes(s.fighterMode))throw Error('Choose fighter totals, component rows or catalog configuration.');
+    if(s.fighterConfig!==undefined||s.fighterMode==='catalog'){
+      const f=s.fighterConfig,c=data.configuration?.fighter;
+      if(!f||!c.levels.some(r=>r.id===f.level)||!Array.isArray(f.components)||f.components.length!==6)throw Error('Invalid fighter level/stage or six component slots.');
+      f.components.forEach((id,slot)=>{if(!Number.isInteger(id)||(id!==0&&c.components[id]?.slot!==slot))throw Error('Invalid fighter component for slot.');});
+      if(!Array.isArray(f.other)||f.other.length!==3)throw Error('Expected other fighter HP, ATK and DEF.');
+      f.other.forEach(v=>number(v,0,1e9,'Other fighter stat'));
+    }
+    if(s.research!==undefined){
+      const r=s.research;
+      if(!r||!['manual','nodes'].includes(r.mode)||!r.levels||typeof r.levels!=='object'||Array.isArray(r.levels))throw Error('Invalid research configuration.');
+      number(r.squad,1,4,'Research squad number',true);
+      for(const [id,level] of Object.entries(r.levels)){
+        const tech=data.configuration.research.flatMap(t=>t.techs).find(t=>String(t.id)===id);
+        if(!tech||!Number.isInteger(level)||(level!==0&&!tech.levels.some(l=>l.level===level)))throw Error('Unknown research node or level.');
+      }
+    }
+    if(s.soldierMode!==undefined&&!['power','troops'].includes(s.soldierMode))throw Error('Invalid soldier input mode.');
+    if(s.troops!==undefined||s.soldierMode==='troops'){
+      if(!s.troops||!data.configuration.soldiers.some(r=>r.id===s.troops.id))throw Error('Unknown soldier record.');
+      number(s.troops.count,0,1e6,'Soldier count',true);
+    }
     if(s.boosts!==undefined){
       if(!Array.isArray(s.boosts)||s.boosts.length>100)throw Error('Maximum 100 boost rows per squad.');
       const targets=['all','front','back','camp:1','camp:2','camp:3',...data.heroes.map(h=>`hero:${h.id}`)];
@@ -158,7 +194,7 @@ const activeDamage = {
 };
 const unsupported = {30001:'Venom ATK debuff',50004:'Radiation damage debuff',50007:'Stun',50008:'Stacking DEF shred',50009:'Guard counterattacks and doubled Guard passive',50010:'Taunt and ATK debuff'};
 export function coverage(data,state) {
-  const notes=new Set(['Growth percentages and flat boosts are separated. Lineup/talent stacking still needs battle validation. Final HP/ATK/DEF entry bypasses these additions.','Soldier power conversion, DEF shield behavior, target selection, timing, stacking and critical hits are hypotheses.','Hero editors support actual skill levels using recovered June coefficients; the reference-cap option preserves earlier values. Hit counts, targeting, durations and authoritative timing remain approximate.','Morale uses the damage percentage you enter from a report; no formula is inferred from rounded morale totals.','Temporary DEF is approximated as added shield that does not expire. Passive auras persist after their source dies.','Displayed decoration, fighter/component, Hall of Fame, tech and gear boosts can be entered with targets. Equipped gear levels derive stat effects from the pinned August catalog; other account boosts remain entered values. Fighter/gear procs, exclusive weapons and seasonal mechanics remain unmodeled.']);
+  const notes=new Set(['Growth percentages and flat boosts are separated. Lineup/talent stacking still needs battle validation. Final HP/ATK/DEF entry bypasses these additions.','Soldier power conversion, DEF shield behavior, target selection, timing, stacking and critical hits are hypotheses.','Hero editors support actual skill levels using recovered June coefficients; the reference-cap option preserves earlier values. Hit counts, targeting, durations and authoritative timing remain approximate.','Morale uses the damage percentage you enter from a report; no formula is inferred from rounded morale totals.','Temporary DEF is approximated as added shield that does not expire. Passive auras persist after their source dies.','Displayed decoration, fighter/component, Hall of Fame, tech and gear boosts can be entered with targets. Equipped gear uses the August catalog; fighter levels/components use the September catalog. Node research derives bonuses from pinned progression data with scenario/squad/defense filters. Manual totals are excluded in catalog/node modes. Troop-derived power still feeds a hypothetical combat conversion. Walls, traps, reinforcement and rally sequencing remain unmodeled. Fighter/gear procs, exclusive weapons and seasonal mechanics remain unmodeled.']);
   state.squads.forEach(s=>s.heroes.forEach(h=>{const ref=heroById(data,h.id);if(unsupported[h.id])notes.add(`${ref.display_name}: ${unsupported[h.id]} not simulated.`);}));
   return [...notes];
 }
@@ -169,7 +205,7 @@ export function simulate(data,state,seed=state.model.seed) {
   for(let side=0;side<2;side++) {
     const s=state.squads[side];
     teams.push(s.heroes.map((h,slot)=>{
-      const ref=heroById(data,h.id),skills=ref.skills,account=combatStats(data,s,h,m),stats=account.start;
+      const ref=heroById(data,h.id),skills=ref.skills,account=combatStats(data,s,h,m,battleContext(state,side)),stats=account.start;
       const pass=skills.find(sk=>sk.slot===3&&sk.name!=='Survival Expert');
       const args=isUnlocked(pass,h)?(heroSkill(pass,h)?.args||[]):[];
       const talent=account.talent,extra=account.modifiers;
@@ -212,7 +248,7 @@ export function simulate(data,state,seed=state.model.seed) {
     const tempResist=effect(target,'resist',time)+effect(target,rad?'radiationResist':'physicalResist',time);
     const critical=rng()<cap(attacker.crit-target.critAvoid,0,1)?attacker.critMultiplier*(1-target.critResist):1;
     const targetCountered=data.counters.some(c=>c.camp===attacker.ref.camp_type&&c.beats_camp===target.ref.camp_type);
-    const damage=attacker.atk*(1+effect(attacker,'attack',time))*coefficient*(1+bonus)*critical*(1-counter)*(1-target.resist)*(1-resistance)*(1-cap(tempResist,0,.95))*m.damageScale*attacker.morale*(counter?1+attacker.counteredDamage:1)*(targetCountered?1-target.counteredResist:1);
+    const damage=attacker.atk*(1+effect(attacker,'attack',time))*coefficient*(1+bonus)*(1+attacker.account.modifiers.damage/100)*critical*(1-counter)*(1-target.resist)*(1-resistance)*(1-cap(tempResist,0,.95))*m.damageScale*attacker.morale*(counter?1+attacker.counteredDamage:1)*(targetCountered?1-target.counteredResist:1);
     pending.push({attacker,target,damage});
   }
   function buff(source,key,value,seconds,time,targets) {for(const h of targets){h.effects=h.effects.filter(e=>e.source!==source.slot||e.key!==key);h.effects.push({source:source.slot,key,value,until:time+seconds});}}

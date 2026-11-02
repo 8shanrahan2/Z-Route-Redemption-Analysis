@@ -4,7 +4,7 @@ A dependency-free static web app for comparing the **Diamond**, **Alliance**, **
 
 ## Features
 
-The interface has **only two tabs**: **Wide table** and **Diamond calculator**. The four top-level statistic cards (shops tracked, shop offers, unique items, and VIP gates) have been removed. The Wide table opens by default, including for browsers that previously saved an older tab.
+The interface has **three tabs**: **Wide table**, **Diamond calculator**, and **Combat Lab**. The four top-level statistic cards (shops tracked, shop offers, unique items, and VIP gates) have been removed. The Wide table opens by default, including for browsers that previously saved an older tab.
 
 - **Wide table:** one item per row with six shop-specific price columns, screenshot-derived item/currency icons, known VIP gates, independently sortable speedup cost-per-minute figures, instant-rate parity, and normalized crystal-crafting costs. The table fills the viewport and preserves position while sorting.
 - **Defeat the Devourers event:** 13 screenshot-observed offers priced in **Devourer coins**, including two 5-minute specialized speedups, 50-stone and 10-Research-Data bundles, and a sold-out 50 Stamina listing. The 1,904 displayed before each slash was the player’s balance (snapshot 14 Oct 2026), **not** an item price. The Wide table includes a sixth shop price column, a fourth independently sortable cost/min currency, and a fifth sortable points-per-currency option for each of the six Alliance Competition days. Seven new item icons and the event coin symbol come from screenshots. Limits are recorded but do not change theoretical points per coin; sold-out offers remain marked. Stamina consumption is modeled as 155 points per stamina on Day 1.
@@ -61,3 +61,25 @@ Run `node tests/smoke.cjs` (Node 18+, no dependencies). Checks item integrity, c
 `data/shop-data.js` holds `items` (stable IDs and labels), `offers` (`shop`, `currency`, `price`, `quantity`, `limit`, optional `minVip`, `evidence`, `source`), and `shops` (resets). Missing `price` means it could not be read, not zero. `reported` means not visually verified. `minVip=null` means *unknown*, not VIP 0.
 
 The benchmark is the screenshot-observed Diamond item unit price (or best allowed VIP price). The comparison rate shown for another currency is: `benchmark diamond price per unit ÷ price in that currency per unit × 1000`. Matching names/items are required; items without a diamond benchmark cannot be scored unless the user supplies one. **No price ratio alone establishes which purchase is most useful for gameplay.**
+
+
+## Combat Lab integration (1 Nov 2026)
+
+The third tab embeds the dependency-free simulator in `combat/`; its full-page link is available when more room is useful. Matchups, boost entries and battle comparisons use a separate browser storage key from the shop tools. JSON export/import preserves the full matchup. Existing Combat Lab version-1 saves remain compatible.
+
+Each squad supports named, enabled/disabled boost rows for decorations/statues, decor buffs, fighter buffs, individual fighter components, Hall of Fame, technology and hero gear. Target the entire squad, a faction, the front/back row, or a specific hero. HP/ATK/DEF accept flat values and percentages. Critical chance/damage accept percentage points; physical/radiation damage, damage reduction and cooldown speed accept percentages. These combat modifier stacking assumptions remain experimental.
+
+Choose **fighter totals** or **individual fighter/component rows**. Only one contributes, preventing summary/component duplication. Fighter power is recorded for reference and is not converted into invented stats or damage. Gear procs and fighter attack skills are not simulated. Item levels/counts may be recorded in row names; enter actual displayed stat effects rather than expecting a level catalog lookup. Quick tech/decor totals and detailed rows are additive, so enter any given effect in only one place.
+
+A per-hero breakdown shows base/entered stats, account percentages, separate flat boosts, and composed stats. Flat gear, decor and fighter values are outside the growth-percentage group, following recovered client display grouping. Lineup/talent combat stacking remains approximate. Final combat HP/ATK/DEF entry bypasses all account stat additions; crit, resistance and damage modifiers are separate inputs and still apply. Soldier-power conversion remains an adjustable hypothesis.
+
+Recovered-source calculators and a browser for 646 historical monster records remain separate from the newer reference combat dataset. The site includes two anonymized battle summaries, with no screenshots or raw client code. The full authoritative damage formula has not been recovered; the simulator is not calibrated to produce accurate win probabilities.
+
+Run both checks from this repository root:
+
+```sh
+node tests/smoke.cjs
+node tests/combat.mjs
+```
+
+`master` was created from `main` at `a70b17bbb337ce5872dbbc91cc70ed795d1e464f` for this integration, as requested. The default branch and any GitHub Pages configuration are unchanged. To serve this branch with GitHub Pages, select `master` and the root directory in the repository's Pages settings.

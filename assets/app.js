@@ -24,7 +24,7 @@
       additions:Array.isArray(stored.additions)?stored.additions:[],
       researchLevels:stored.researchLevels&&typeof stored.researchLevels==="object"?stored.researchLevels:{}};
     state.baseLevel=heroExp?.normalizeBaseLevel(state.baseLevel)??21;
-    if(state.tab!=="wide" && state.tab!=="calculator")state.tab="wide";
+    if(!["wide","calculator","combat"].includes(state.tab))state.tab="wide";
   } catch(e) {}
   const q = id => document.getElementById(id);
   const esc = value => String(value == null ? "" : value).replace(/[&<>"']/g,
@@ -686,12 +686,12 @@
   }
   function render(){
     // Only the wide table needs the full browser width.
-    q("app-container")?.classList?.toggle("wide-layout",state.tab==="wide");
+    q("app-container")?.classList?.toggle("wide-layout",state.tab==="wide" || state.tab==="combat");
     document.querySelectorAll("[data-tab]").forEach(b=>{
       b.classList.toggle("active",b.dataset.tab===state.tab);
       b.setAttribute("aria-current",b.dataset.tab===state.tab?"page":"false");
     });
-    q("workspace").innerHTML = state.tab==="calculator" ? calculator() : wideTable();
+    q("workspace").innerHTML = state.tab==="combat" ? '<section class="combat-workspace"><p class="note">Two squads, account boosts and recovered combat research. Outcomes remain experimental. <a href="combat/index.html" target="_blank" rel="noopener">Open Combat Lab in its own tab ↗</a></p><iframe class="combat-frame" src="combat/index.html" title="Z Route Combat Lab"></iframe></section>' : state.tab==="calculator" ? calculator() : wideTable();
   }
   document.addEventListener("click", e=>{
     const tab=e.target.closest("[data-tab]");

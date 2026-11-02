@@ -195,7 +195,7 @@ assert.match(rendered(), /id="wide-base-level"/);
 assert.match(rendered(), /<option value="21" selected>Level 21<\/option>/);
 assert(!rendered().includes("Shops tracked"),"Removed overview cards");
 const site=text("index.html");
-assert.equal((site.match(/data-tab=/g)||[]).length,2,"Only two visible tool tabs");
+assert.equal((site.match(/data-tab=/g)||[]).length,3,"Three visible tool tabs");
 assert(!site.includes('id="overview"'),"Remove overview block");
 const tab = name => handlers.click({
   target: {closest(selector) { return selector === "[data-tab]" ? {dataset: {tab:name}} : null; }}
@@ -515,4 +515,11 @@ assert(!wideClasses.has("wide-layout"),"Calculator uses ordinary layout");
 assert.match(rendered(), /Diamond speedup calculator/);
 tab("wide");
 assert(wideClasses.has("wide-layout"));
-console.log("ZR Shop Ledger smoke tests passed.");
+tab("combat");
+assert.match(rendered(), /src="combat\/index.html"/);
+assert.match(rendered(), /title="Z Route Combat Lab"/);
+assert(wideClasses.has("wide-layout"),"Combat Lab should use the full width");
+assert(fs.existsSync(path.join(root,"combat/model.mjs")));
+tab("calculator");
+assert.match(rendered(), /Diamond speedup calculator/);
+console.log("ZR Shop Ledger and Combat Lab integration smoke tests passed.");

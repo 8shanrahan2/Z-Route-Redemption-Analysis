@@ -1,9 +1,9 @@
-import {renderResearch} from './research.mjs';
-import {initialState,validate,heroById,heroStats,lineup,statKeys,skillRow,isUnlocked,simulate,coverage,accountStats,boostSources,boostStats} from './model.mjs';
+import {renderResearch} from './research.mjs?v=0.4';
+import {initialState,validate,heroById,heroStats,lineup,statKeys,skillRow,isUnlocked,simulate,coverage,accountStats,boostSources,boostStats,heroSkill,skillCap,equipmentStats,usesEquipment,combatStats} from './model.mjs?v=0.4';
 const $=s=>document.querySelector(s),esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const fmt=n=>Math.round(n).toLocaleString(),short=n=>n>=1e6?(n/1e6).toFixed(2)+'M':n>=1e3?(n/1e3).toFixed(1)+'K':fmt(n);
 const key='z-route-combat-lab-v1';
-let data,state,result=null,editing=null;
+let data,state,result=null,editing=null,editorDraft=null;
 const message=text=>{$('#message').textContent=text;};
 function save(){try{localStorage.setItem(key,JSON.stringify(state));$('#save-status').textContent='Saved on this device';}catch{$('#save-status').textContent='Browser storage unavailable — export JSON to keep changes';}}
 function invalidate(){result=null;$('#battle').hidden=true;$('#result').innerHTML='<h2>The field is set.</h2><p>Inputs changed. Run the matchup for a fresh estimate.</p><div class="versus"><b>A</b><span>VS</span><b>B</b></div>';save();}
@@ -47,23 +47,44 @@ function renderReports(){
   $('#reports').innerHTML=state.reports.length?state.reports.slice().reverse().map(r=>`<div class="report"><strong>${r.actual===r.predicted?'Match':'Mismatch'}</strong> · actual ${esc(r.actual)} / model ${esc(r.predicted)} <small>· ${esc(r.date||'')}</small><p>${esc(r.note)}</p></div>`).join(''):'<div class="empty">No saved model comparisons yet. The two reviewed reports are in the research section.</div>';
 }
 function editorHero(){
-  return {id:Number($('#hero-id').value),level:Number($('#hero-level').value),stars:Number($('#hero-stars').value),starStep:Number($('#hero-stars').value)*5+Number($('#hero-substep').value),power:Number($('#hero-power').value),stats:$('#override').checked?Object.fromEntries(statKeys.map(k=>[k,Number($(`#stat-${k}`).value)])):null,finalStats:$('#override').checked&&$('#final-stats').checked,auto:$('#custom-auto').value===''?null:Number($('#custom-auto').value),active:$('#custom-active').value===''?null:Number($('#custom-active').value)};
+  const h={id:Number($('#hero-id').value),level:Number($('#hero-level').value),stars:Number($('#hero-stars').value),starStep:Number($('#hero-stars').value)*5+Number($('#hero-substep').value),power:Number($('#hero-power').value),stats:$('#override').checked?Object.fromEntries(statKeys.map(k=>[k,Number($(`#stat-${k}`).value)])):null,finalStats:$('#override').checked&&$('#final-stats').checked,auto:$('#custom-auto').value===''?null:Number($('#custom-auto').value),active:$('#custom-active').value===''?null:Number($('#custom-active').value),skillModel:$('#skill-model').value,skillLevels:[1,2,3,4].map(i=>$(`#skill-level-${i}`).value===''?null:Number($(`#skill-level-${i}`).value)),gearMode:$('#gear-mode').value};
+  h.gear=[0,1,2,3].map(slot=>{
+    const id=Number($(`#gear-item-${slot}`).value);if(!id)return null;
+    const item=data.equipment.items.find(r=>r.id===id),wanted=Number($(`#gear-level-${slot}`).value),level=item.strengthen_levels.filter(r=>r.level<=wanted).at(-1)?.level??item.strengthen_levels[0].level;
+    const promotion=$(`#gear-promotion-${slot}`).value.split(':').map(Number);
+    return {id,level,promotion:item.promotion_levels.some(r=>r.level===promotion[0]&&r.stage===promotion[1])?promotion:null};
+  });
+  return h;
+}
+function updateEditorPreview(){
+  const h=editorDraft,[side,slot]=editing,squad={...state.squads[side],heroes:state.squads[side].heroes.map((old,i)=>i===slot?h:old)};
+  try{
+    const next={...state,squads:state.squads.map((s,i)=>i===side?squad:s)};validate(data,next);
+    const a=combatStats(data,squad,h,state.model),gear=equipmentStats(data,h),ref=heroById(data,h.id);
+    $('#editor-preview').innerHTML=`<div class="bonus-grid">${statKeys.map(k=>`<div><span>${k==='hp'?'HP':k==='attack'?'ATK':'DEF'} at battle start</span><strong>${fmt(a.start[k])}</strong></div>`).join('')}</div><p>ATK boosts: ${fmt(a.flat.attack)} flat + ${(a.percent.attack+a.passive.attack).toFixed(2)}% account / gear / passive + ${a.lineupBonus}% lineup + ${(a.talent*100).toFixed(0)}% specialty.${h.finalStats?' Final combat stats selected: those HP/ATK/DEF additions are bypassed.':''}</p>${h.auto!==null||h.active!==null?'<p>Custom damage coefficients are active and take priority over the corresponding skill damage value.</p>':''}<p>Equipped gear: ${fmt(gear.flat.attack)} ATK + ${gear.percent.attack.toFixed(2)}% ATK; ${fmt(gear.flat.hp)} HP + ${gear.percent.hp.toFixed(2)}% HP; ${fmt(gear.flat.defense)} DEF + ${gear.percent.defense.toFixed(2)}% DEF. ${usesEquipment(h)?'Account gear rows are excluded for this hero.':'Loadout effects are excluded while account gear rows are selected.'}</p>${gear.ignored.length?`<p>${[...new Set(gear.ignored.map(b=>b.name+': '+b.reason))].map(esc).join('<br>')}</p>`:''}`;
+    for(const sk of ref.skills){
+      const row=heroSkill(sk,h);
+      $(`#skill-text-${sk.slot}`).textContent=row?.text||'Specialty stat bonus; available at the required hero level and stars.';
+      $(`#skill-source-${sk.slot}`).textContent=`${isUnlocked(sk,h)?'Unlocked':'Locked'} · selected level ${row?.skill_level??1} / ${skillCap(sk,h)}${sk.slot<=3?' · '+(h.skillModel==='recovered'?'recovered June formulas':'reference cap'):''}${sk.cooldown_s?' · base CD '+(row?.cooldown_s??sk.cooldown_s)+'s':''}`;
+    }
+  }catch(err){$('#editor-preview').textContent=err.message;}
 }
 function renderEditor(){
-  const [side,slot]=editing,h=state.squads[side].heroes[slot],ref=heroById(data,h.id),stats=heroStats(data,h);
+  const h=editorDraft,[side,slot]=editing,ref=heroById(data,h.id),stats=heroStats(data,h),supported=ref.skills.filter(sk=>sk.slot<=3).every(sk=>sk.recovered);
   $('#slot-label').textContent=`SQUAD ${side?'B':'A'} / ${slot<2?'FRONT':'BACK'} ROW / SLOT ${slot+1}`;
-  $('#editor-fields').innerHTML=`<div class="editor-grid"><label class="full">Hero<select id="hero-id">${data.heroes.map(r=>`<option value="${r.id}" ${h.id===r.id?'selected':''} ${state.squads[side].heroes.some((x,i)=>i!==slot&&x.id===r.id)?'disabled':''}>${esc(r.display_name)} · ${r.quality_name} · ${r.camp_name} · ${r.role_short}</option>`).join('')}</select></label>${input('Level',h.level,'id="hero-level" type="number" required min="1" max="150" step="1"')}<label>Whole stars<select id="hero-stars">${[0,1,2,3,4,5].map(n=>`<option value="${n}" ${n===h.stars?'selected':''}>${n} ★</option>`).join('')}</select></label><label>Steps toward next star<select id="hero-substep">${Array.from({length:h.stars===5?1:5},(_,n)=>`<option value="${n}" ${n===(h.starStep??h.stars*5)%5?'selected':''}>${n} / 5</option>`).join('')}</select></label>${input('Displayed hero power',h.power,`${numeric} id="hero-power" min="0" max="10000000000"`)}</div>
-  <p class="fine">Star step ${h.starStep??h.stars*5} / 25. Base growth uses the equation verified in recovered client code, with this sandbox’s pinned growth tables.</p>
-  <label class="check"><input id="override" type="checkbox" ${h.stats?'checked':''}> Enter HP, ATK and DEF</label>
-  <label class="check"><input id="final-stats" type="checkbox" ${h.finalStats?'checked':''} ${h.stats?'':'disabled'}> These are final combat stats, including account and lineup bonuses</label>
-  <p class="fine">Final stats bypass all HP/ATK/DEF account boosts, lineup, specialty, static ATK/DEF passives and soldier-power conversion for this hero. Otherwise enter base stats before those bonuses. Active combat buffs still apply. DEF behavior remains hypothetical.</p>
-  <div class="editor-grid">${statKeys.map(k=>input(k==='hp'?'HP':k==='attack'?'ATK':'DEF',Math.round(stats[k]),`${numeric} id="stat-${k}" min="${k==='hp'?1:0}" max="10000000000" ${h.stats?'':'disabled'}`)).join('')}</div>
-  <div class="editor-grid two">${input('Custom auto ATK % (blank = star cap)',h.auto??'','id="custom-auto" type="number" min="0" max="100000" step="any"')}${input('Custom active ATK % (damage only)',h.active??'','id="custom-active" type="number" min="0" max="100000" step="any"')}</div>
-  <p class="fine">Sandbox skills still use the newer reference star-cap values (1 / 1 / 5 / 10 / 20 / 30). Explore actual skill levels in the separate June source calculator below; its older values are not silently mixed into this model.</p>
-  ${ref.skills.map(sk=>{const row=skillRow(sk,h.stars),on=isUnlocked(sk,h);return `<div class="skill-reference ${on?'':'locked'}"><strong>${esc(sk.name)}</strong><span class="type">${esc(sk.effect_type||'Passive / specialty')}</span><p>${row?esc(row.text):'Specialty: +'+({UR:20,SSR:10,SR:5}[ref.quality_name]||0)+'% HP / ATK / DEF'+(ref.quality_name==='UR'?', +10% cooldown speed':'')}</p><div class="skill-source">${on?'Unlocked':'Locked'} · requires Lv ${sk.unlock_level}${sk.unlock_star?' / '+sk.unlock_star+'★':''}${sk.cooldown_s?' · '+sk.cooldown_s+'s CD':''}${row?' · skill level '+row.skill_level:''}</div></div>`;}).join('')}
-  <p class="fine">PvP sandbox: monster-only effects are excluded. Control effects and exclusive weapons remain incomplete. <a href="https://jeffxlabs.github.io/zrouteredemption/heroes/" target="_blank" rel="noreferrer">Source hero directory ↗</a></p>`;
+  $('#editor-fields').innerHTML=`<div class="editor-grid"><label class="full">Hero<select id="hero-id">${data.heroes.map(r=>`<option value="${r.id}" ${h.id===r.id?'selected':''} ${state.squads[side].heroes.some((x,i)=>i!==slot&&x.id===r.id)?'disabled':''}>${esc(r.display_name)} · ${r.quality_name} · ${r.camp_name}</option>`).join('')}</select></label>${input('Level',h.level,'id="hero-level" type="number" required min="1" max="150" step="1"')}<label>Whole stars<select id="hero-stars">${[0,1,2,3,4,5].map(n=>`<option value="${n}" ${n===h.stars?'selected':''}>${n} ★</option>`).join('')}</select></label><label>Steps toward next star<select id="hero-substep">${Array.from({length:h.stars===5?1:5},(_,n)=>`<option value="${n}" ${n===(h.starStep??h.stars*5)%5?'selected':''}>${n} / 5</option>`).join('')}</select></label>${input('Displayed hero power (reference)',h.power,`${numeric} id="hero-power" min="0" max="10000000000"`)}</div>
+  <section class="editor-live"><h3>Live combat stats</h3><div id="editor-preview" aria-live="polite"></div><p class="fine">The simulator uses this same stat calculation after Apply. Battle stacking, soldier conversion and DEF behavior remain experimental.</p></section>
+  <h3>Skill levels</h3><label>Skill formula set<select id="skill-model"><option value="reference" ${h.skillModel!=='recovered'?'selected':''}>Reference star caps (existing model)</option><option value="recovered" ${h.skillModel==='recovered'?'selected':''} ${supported?'':'disabled'}>Recovered June formulas · actual levels</option></select></label><p class="fine">Entering a skill level selects the recovered June coefficients. These differ from the newer reference values for several heroes; compare the displayed effects with your game. Hit counts, durations and targeting retain sandbox assumptions. Blank level = selected star’s cap. ${supported?'':'Actual-level formulas are unavailable for this hero in that catalog.'}</p>
+  ${ref.skills.map(sk=>`<div class="skill-reference"><strong>${esc(sk.name)}</strong><span class="type">${esc(sk.effect_type||'Specialty')}</span>${input('Skill '+sk.slot+' level',h.skillLevels?.[sk.slot-1]??'',`id="skill-level-${sk.slot}" data-skill-level="${sk.slot}" type="number" min="1" max="${skillCap(sk,h)}" step="1" placeholder="Cap ${skillCap(sk,h)}" ${(!isUnlocked(sk,h)||!supported||sk.slot===4)?'disabled':''}`)}<p id="skill-text-${sk.slot}"></p><div class="skill-source" id="skill-source-${sk.slot}"></div></div>`).join('')}
+  <h3>Equipped gear</h3><label>Gear effects from<select id="gear-mode"><option value="items" ${usesEquipment(h)?'selected':''}>These equipped items</option><option value="rows" ${usesEquipment(h)?'':'selected'}>Account gear boost rows</option></select></label><p class="fine">Selecting gear applies its catalog stats automatically and excludes account gear rows for this hero. Four regular gear slots; exclusive weapons and procs remain unmodeled. Gear data: August client snapshot.</p>
+  <div class="gear-grid">${[0,1,2,3].map(slot=>{
+    const entry=h.gear?.[slot],item=data.equipment.items.find(r=>r.id===entry?.id);
+    return `<div class="gear-piece"><label>${esc(data.equipment.slots[slot])}<select id="gear-item-${slot}" data-gear-item="${slot}"><option value="0">None</option>${data.equipment.items.filter(r=>r.slot===slot).map(r=>`<option value="${r.id}" ${r.id===entry?.id?'selected':''}>${esc(r.name)}</option>`).join('')}</select></label><div class="editor-grid two"><label>Upgrade level<select id="gear-level-${slot}" data-gear-level="${slot}" ${item?'':'disabled'}>${(item?.strengthen_levels||[{level:0}]).map(r=>`<option value="${r.level}" ${r.level===entry?.level?'selected':''}>${r.level}</option>`).join('')}</select></label><label>Promotion<select id="gear-promotion-${slot}" data-gear-promotion="${slot}" ${item?.promotion_levels.length?'':'disabled'}><option value="">None</option>${(item?.promotion_levels||[]).map(r=>`<option value="${r.level}:${r.stage}" ${entry?.promotion?.[0]===r.level&&entry?.promotion?.[1]===r.stage?'selected':''}>${r.level} / stage ${r.stage}</option>`).join('')}</select></label></div></div>`;
+  }).join('')}</div>
+  <details><summary>Stat and damage overrides</summary><label class="check"><input id="override" type="checkbox" ${h.stats?'checked':''}> Enter base HP, ATK and DEF</label><label class="check"><input id="final-stats" type="checkbox" ${h.finalStats?'checked':''} ${h.stats?'':'disabled'}> Values are final combat HP, ATK and DEF</label><p class="fine">Final stats bypass HP/ATK/DEF growth, gear, account, lineup, specialty, static passive and soldier additions. Gear crit/resistance effects and active buffs are separate.</p><div class="editor-grid">${statKeys.map(k=>input(k==='hp'?'HP':k==='attack'?'ATK':'DEF',Math.round(stats[k]),`${numeric} id="stat-${k}" min="${k==='hp'?1:0}" max="10000000000" ${h.stats?'':'disabled'}`)).join('')}</div><div class="editor-grid two">${input('Custom auto ATK % (blank = skill)',h.auto??'','id="custom-auto" type="number" min="0" max="100000" step="any"')}${input('Custom active ATK % (blank = skill)',h.active??'','id="custom-active" type="number" min="0" max="100000" step="any"')}</div></details>`;
+  updateEditorPreview();
 }
-function showEditor(side,slot){editing=[side,slot];renderEditor();$('#editor').showModal();}
+function showEditor(side,slot){editing=[side,slot];editorDraft=structuredClone(state.squads[side].heroes[slot]);renderEditor();$('#editor').showModal();}
 function chart(points,time){
   const X=t=>45+t/Math.max(1,time)*610,Y=v=>220-v*1.9;
   return `<svg class="chart" viewBox="0 0 680 252" role="img" aria-label="Squad HP as a percentage of starting HP over time"><title>Remaining squad HP over time</title>${[0,25,50,75,100].map(v=>`<line x1="45" y1="${Y(v)}" x2="655" y2="${Y(v)}" stroke="#303a31"/><text x="5" y="${Y(v)+4}">${v}%</text>`).join('')}${['A','B'].map((key,i)=>`<polyline fill="none" stroke="${i?'#94bded':'#d3ed7a'}" stroke-width="2.5" points="${points.map(p=>`${X(p.time).toFixed(1)},${Y(p[key]).toFixed(1)}`).join(' ')}"/>`).join('')}<text x="45" y="245">0s</text><text x="625" y="245">${time.toFixed(1)}s</text></svg>`;
@@ -106,23 +127,26 @@ $('#model-fields').addEventListener('change',e=>{
 });
 $('#per-hit').addEventListener('change',e=>{state.model.perHit=e.target.checked;invalidate();});
 $('#close-editor').onclick=()=>$('#editor').close();
-$('#editor').addEventListener('change',e=>{
-  if(e.target.id==='override'){
-    for(const k of statKeys)$(`#stat-${k}`).disabled=!e.target.checked;
-    $('#final-stats').disabled=!e.target.checked;
-  }
-  if(['hero-id','hero-level','hero-stars','hero-substep'].includes(e.target.id)){
-    if(!$('#hero-level').checkValidity()){ $('#hero-level').reportValidity();return; }
-    const [side,slot]=editing,original=state.squads[side].heroes[slot],draft=editorHero();
-    if(e.target.id==='hero-stars')draft.starStep=draft.stars*5;
-    if(e.target.id==='hero-id'){draft.stats=null;draft.finalStats=false;draft.auto=null;draft.active=null;draft.power=0;}
-    state.squads[side].heroes[slot]=draft;renderEditor();state.squads[side].heroes[slot]=original;
-  }
-});
+function updateEditor(event){
+  const el=event.target;
+  if(el.tagName==='INPUT'&&!el.checkValidity()){updateEditorPreview();return;}
+  if(el.id==='override'){for(const k of statKeys)$(`#stat-${k}`).disabled=!el.checked;$('#final-stats').disabled=!el.checked;}
+  if(el.dataset.skillLevel)$('#skill-model').value='recovered';
+  if(el.dataset.gearItem!==undefined||el.dataset.gearLevel!==undefined||el.dataset.gearPromotion!==undefined)$('#gear-mode').value='items';
+  const next=editorHero();
+  if(el.id==='hero-stars'){next.starStep=next.stars*5;next.skillLevels=next.skillLevels.map((lv,i)=>lv===null?null:Math.min(lv,skillCap(heroById(data,next.id).skills[i],next)));}
+  if(el.id==='skill-model'&&next.skillModel==='reference')next.skillLevels=[null,null,null,null];
+  if(el.id==='hero-id'){next.stats=null;next.finalStats=false;next.auto=null;next.active=null;next.power=0;next.skillModel='reference';next.skillLevels=[null,null,null,null];}
+  editorDraft=next;
+  if(event.type==='change'&&(el.tagName==='SELECT'||el.id==='hero-level')){const top=$('#editor').scrollTop;renderEditor();$('#editor').scrollTop=top;}
+  else updateEditorPreview();
+}
+$('#editor').addEventListener('input',e=>{if(e.target.tagName==='INPUT')updateEditor(e);});
+$('#editor').addEventListener('change',e=>{if(e.target.tagName==='SELECT'||e.target.type==='checkbox'||e.target.id==='hero-level')updateEditor(e);});
 $('#hero-form').onsubmit=e=>{
   e.preventDefault();const [side,slot]=editing,next=structuredClone(state);
   next.squads[side].heroes[slot]=editorHero();
-  try{validate(data,next);state=next;$('#editor').close();invalidate();renderSquads();message('');}catch(err){message(err.message);}
+  try{validate(data,next);state=next;$('#editor').close();invalidate();renderSquads();message('Hero skill levels and gear applied to the simulator.');}catch(err){$('#editor-preview').textContent=err.message;}
 };
 $('#run').onclick=async()=>{
   if(!Array.from($('#squads').querySelectorAll('input')).every(el=>el.checkValidity())){message('Fix invalid squad inputs before running.');return;}
@@ -140,7 +164,7 @@ $('#import').onchange=async e=>{
 };
 $('#report-form').onsubmit=e=>{e.preventDefault();if(!result){message('Run the current matchup before saving a comparison.');return;}if(state.reports.length>=500){message('Notebook is full (500 reports). Export your data before starting a new notebook.');return;}state.reports.push({date:new Date().toISOString(),actual:$('#actual').value,predicted:result.winner,note:$('#note').value,source:data.source.revision,snapshot:{version:1,squads:structuredClone(state.squads),model:{...state.model},reports:[]},sample:{time:result.time,survivors:result.survivors,remaining:result.remaining}});save();renderReports();$('#note').value='';message('Battle comparison saved on this device. Export JSON for a backup.');};
 try{
-  const response=await fetch('data.json');if(!response.ok)throw Error('Hero dataset could not be loaded.');data=await response.json();state=initialState();
+  const response=await fetch('data.json?v=0.4',{cache:'no-cache'});if(!response.ok)throw Error('Hero dataset could not be loaded.');data=await response.json();state=initialState();
   try{const raw=localStorage.getItem(key);if(raw){state=validate(data,JSON.parse(raw));}}catch(err){message('Saved data could not be loaded; showing the demo. '+err.message+' Import a JSON backup to restore.');$('#save-status').textContent='Previous saved data retained until you make a change';}
   renderSquads();renderModel();renderReports();$('#provenance').textContent=`Pinned revision ${data.source.revision.slice(0,12)}. ${data.source.catalogs}. Source files and their SHA-256 hashes are included in every export.`;
 }catch(err){message('Unable to start: '+err.message+' Serve this folder over HTTP (see README).');$('#run').disabled=true;}

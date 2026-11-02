@@ -2,11 +2,11 @@
 <html lang="en">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="description" content="Experimental Z Route: Redemption two-squad combat lab. Compare heroes and test explicit combat hypotheses using JeffxLabs client facts.">
-<title>Z Route · Combat Lab</title><link rel="icon" href="icon.svg" type="image/svg+xml"><link rel="stylesheet" href="style.css"></head>
+<title>Z Route · Combat Lab</title><link rel="icon" href="icon.svg" type="image/svg+xml"><link rel="stylesheet" href="style.css?v=0.4"></head>
 <body>
-<header><a class="brand" href="#"><span class="mark">Z<span>R</span></span><span>Z ROUTE<small>COMBAT LAB</small></span></a><div class="header-right"><span class="status-dot"></span> RESEARCH BUILD <span class="version">v0.3</span></div></header>
+<header><a class="brand" href="#"><span class="mark">Z<span>R</span></span><span>Z ROUTE<small>COMBAT LAB</small></span></a><div class="header-right"><span class="status-dot"></span> RESEARCH BUILD <span class="version">v0.4</span></div></header>
 <main>
-<div class="intro"><div><div class="eyebrow">Z ROUTE: REDEMPTION / MATCHUP SANDBOX</div><h1>Power doesn’t tell<br>the whole story<span>.</span></h1><p>Build two squads. Test the matchup. Find out what matters.</p></div><div class="intro-note"><span class="tag">EXPERIMENTAL MODEL</span><p>Account boosts by source. Two real battle samples.<br>The damage model remains an uncalibrated estimate.</p><a href="#research">See what’s known ↗</a></div></div>
+<div class="intro"><div><div class="eyebrow">Z ROUTE: REDEMPTION / MATCHUP SANDBOX</div><h1>Power doesn’t tell<br>the whole story<span>.</span></h1><p>Build two squads. Test the matchup. Find out what matters.</p></div><div class="intro-note"><span class="tag">EXPERIMENTAL MODEL</span><p>Editable skills. Equipped gear. Two real battle samples.<br>The damage model remains an uncalibrated estimate.</p><a href="#research">See what’s known ↗</a></div></div>
 <div class="toolbar"><span><span class="status-dot"></span> <span id="save-status">Saved on this device</span></span><div><button id="swap" class="quiet">⇄ Swap sides</button><button id="export" class="quiet">Export JSON ↓</button><label class="button quiet">Import JSON ↑<input id="import" type="file" accept=".json,application/json" hidden></label><button id="reset" class="quiet">Reset demo</button></div></div>
 <p id="message" role="status" aria-live="polite"></p>
 <div class="workspace"><div class="squads" id="squads"></div>
@@ -25,9 +25,9 @@
 <details class="research-detail"><summary>Battle evidence · matching-Warrior PvP defeat</summary><div id="pvp-evidence"></div><p>Stars, skill levels, initial stats and the hit timeline are missing. Red Monroe dealt about 31.7% more damage. This cannot be attributed solely to levels or morale. The power popup belongs to red: 4,092,900 + 1,555,848 + 401,600 = 6,050,348; tech/lineup bonus power is not added again.</p></details>
 <details class="research-detail"><summary>Battle evidence · level-24 Zombie Elite Horde rally</summary><p>Report 311151708879454375: the shown first round was a 6.1M squad beating a 4.7M horde. The 18.8M rally total is a separate measure. Blue lost 192 soldiers (21 dead, 11 hospitalized, 160 wounded); 1,523 remained from 1,715. All 1,845 enemy T8 troops were lost.</p><p>Each of five enemies shows 840K damage taken. That does not establish initial HP. Adding the fighter’s 218K equivalent output as independent hero damage conflicts with the report’s rounded totals. Monster-only skills are excluded from the current PvP sandbox, so this rally is not a validated sandbox preset.</p></details>
 </section>
-<section class="panel" id="methodology"><div class="eyebrow">SIMULATION COVERAGE</div><h2>Where the sandbox still makes assumptions</h2><ul id="coverage"></ul><p class="fine">Hero power is reference only. A surviving squad at the time limit is unresolved. Reviewed reports and older source calculators do not automatically fit or replace the experimental damage engine. Screenshots and raw client code stay outside the hosted site.</p></section>
+<section class="panel" id="methodology"><div class="eyebrow">SIMULATION COVERAGE</div><h2>Where the sandbox still makes assumptions</h2><ul id="coverage"></ul><p class="fine">Hero power is reference only. A surviving squad at the time limit is unresolved. Selected skill coefficients and gear effects flow into the experimental damage engine. Reviewed reports have not calibrated its predictions. Screenshots and raw client code stay outside the hosted site.</p></section>
 <footer><span>Z ROUTE / COMBAT LAB</span><span>Unofficial research tool · Original artwork belongs to its game owners.</span><span>No account connection. Data stays in this browser.</span></footer>
 </main>
 <dialog id="editor" aria-labelledby="editor-title"><form id="hero-form"><div class="section-heading"><div><div class="eyebrow" id="slot-label"></div><h2 id="editor-title">Configure hero</h2></div><button id="close-editor" type="button" class="quiet" aria-label="Close hero editor">✕</button></div><div id="editor-fields"></div><button class="primary" type="submit">Apply hero <span>✓</span></button></form></dialog>
-<script type="module" src="app.mjs"></script>
+<script type="module" src="app.mjs?v=0.4"></script>
 </body></html>

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {initialState,makeHero,lineup,heroStats,simulate,validate,isUnlocked,skillRow,heroById,accountStats} from '../combat/model.mjs';
+import {initialState,makeHero,lineup,heroStats,simulate,validate,isUnlocked,skillRow,heroById,accountStats,heroSkill,skillCap,equipmentStats,combatStats} from '../combat/model.mjs';
 import {skillValue,soldierStats} from '../combat/research.mjs';
 const data=JSON.parse(readFileSync(new URL('../combat/data.json',import.meta.url)));
 const copy=x=>structuredClone(x),s=initialState();
@@ -101,3 +101,42 @@ for(const patch of [{flat:NaN},{percent:-1},{stat:'unknown'},{target:'hero:99999
 const roundTrip=JSON.parse(JSON.stringify(ledger));validate(data,roundTrip);
 assert.deepEqual(simulate(data,roundTrip),simulate(data,ledger),'Boost entries survive JSON backup/restore');
 console.log('PASS: combat, source facts, target-specific account boosts, grouped flat/percent stats, Hall of Fame, component/summary exclusion, final overrides, typed damage boosts, JSON round trips and input rejection.');
+const configured=copy(counter),rh=configured.squads[0].heroes[0];
+rh.id=10005;rh.level=21;rh.stars=3;rh.starStep=15;rh.auto=null;rh.active=0;rh.skillModel='recovered';rh.skillLevels=[1,1,1,null];
+const rachel=heroById(data,rh.id),skillAtOne=simulate(data,configured);
+assert.equal(heroSkill(rachel.skills[2],rh).args[0],'10.46%');
+rh.skillLevels=[10,1,10,null];
+assert.equal(heroSkill(rachel.skills[2],rh).args[0],'15.95%');
+const skillAtTen=simulate(data,configured);
+assert.ok(skillAtTen.teams[0][0].atk>skillAtOne.teams[0][0].atk,'Passive skill level flows into ATK');
+assert.ok(skillAtTen.teams[0][0].damage>skillAtOne.teams[0][0].damage,'Skill levels change actual simulated damage');
+const arnold={...makeHero(10007),skillModel:'recovered',skillLevels:[10,null,null,null]};
+assert.equal(heroSkill(heroById(data,10007).skills[0],arnold).args[0],'208.2%');
+assert.equal(heroSkill(heroById(data,10007).skills[0],{...arnold,skillModel:'reference'}).args[0],'202.4%','Reference caps remain a distinct version');
+assert.equal(skillCap(rachel.skills[0],rh),10);
+rh.gearMode='items';rh.gear=[{id:100501,level:10,promotion:null},null,null,null];
+let gear=equipmentStats(data,rh);
+assert.equal(gear.flat.attack,1740,'Level-10 main 1440 + cumulative milestone 300');
+assert.equal(gear.flat.defense,192);near(gear.percent.attack,4.08);near(gear.modifiers.critChance,7.5);
+const geared=simulate(data,configured),preview=combatStats(data,configured.squads[0],rh,configured.model);
+near(geared.teams[0][0].atk,preview.start.attack);near(geared.teams[0][0].maxHP,preview.start.hp);near(geared.teams[0][0].def,preview.start.defense);
+assert.ok(geared.teams[0][0].damage>skillAtTen.teams[0][0].damage,'Selected catalog gear affects real hits');
+configured.squads[0].boosts=[row({target:'hero:10005',flat:99999})];
+near(simulate(data,configured).teams[0][0].atk,geared.teams[0][0].atk,'Catalog loadout excludes manual gear rows');
+rh.gear[0].promotion=[1,0];gear=equipmentStats(data,rh);
+near(gear.flat.attack,3331.36,'Strengthen total + one promotion main total + promotion milestone');
+rh.gearMode='rows';
+assert.ok(simulate(data,configured).teams[0][0].atk>geared.teams[0][0].atk,'Manual gear rows can be selected instead');
+rh.gearMode='items';rh.finalStats=true;
+assert.equal(simulate(data,configured).teams[0][0].atk,rh.stats.attack,'Final ATK bypasses catalog gear and passive additions');
+assert.ok(simulate(data,configured).teams[0][0].crit>configured.model.critChance/100,'Final HP/ATK/DEF does not erase separate gear crit effects');
+assert.deepEqual(simulate(data,JSON.parse(JSON.stringify(configured))),simulate(data,configured),'Loadout and actual skill levels survive export/import');
+for(const change of [x=>x.skillLevels[0]=0,x=>x.skillLevels[0]=11,x=>x.skillLevels[0]=1.5,x=>x.gear[0].id=100502,x=>x.gear[0].level=99,x=>x.gear[0].promotion=[99,99]]){
+  const bad=copy(configured);change(bad.squads[0].heroes[0]);assert.throws(()=>validate(data,bad));
+}
+for(const ref of data.heroes.filter(h=>h.skills.filter(sk=>sk.slot<=3).every(sk=>sk.recovered))){
+  const trial=copy(s),index=trial.squads[0].heroes.findIndex(h=>h.id===ref.id);
+  const hero={...makeHero(ref.id),stars:5,starStep:25,level:150,skillModel:'recovered'};hero.skillLevels=[1,2,3,4].map(slot=>skillCap(ref.skills.find(sk=>sk.slot===slot),hero));trial.squads[0].heroes[index<0?0:index]=hero;
+  const out=simulate(data,trial);assert.ok(out.teams.flat().every(h=>Number.isFinite(h.damage)&&h.damage>=0&&h.hp>=0&&h.hp<=h.maxHP));
+}
+console.log('PASS: actual skill-level coefficients and passives, catalog gear levels/promotions, preview/simulation equality, gear-source exclusion, final overrides, persistence and invalid input rejection.');

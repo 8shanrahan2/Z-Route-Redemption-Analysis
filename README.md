@@ -69,7 +69,7 @@ The third tab embeds the dependency-free simulator in `combat/`; its full-page l
 
 Each squad supports named, enabled/disabled boost rows for decorations/statues, decor buffs, fighter buffs, individual fighter components, Hall of Fame, technology and hero gear. Target the entire squad, a faction, the front/back row, or a specific hero. HP/ATK/DEF accept flat values and percentages. Critical chance/damage accept percentage points; physical/radiation damage, damage reduction and cooldown speed accept percentages. These combat modifier stacking assumptions remain experimental.
 
-Choose **fighter totals** or **individual fighter/component rows**. Only one contributes, preventing summary/component duplication. Fighter power is recorded for reference and is not converted into invented stats or damage. Gear procs and fighter attack skills are not simulated. Item levels/counts may be recorded in row names; enter actual displayed stat effects rather than expecting a level catalog lookup. Quick tech/decor totals and detailed rows are additive, so enter any given effect in only one place.
+Choose **fighter totals** or **individual fighter/component rows**. Only one contributes, preventing summary/component duplication. Fighter power is recorded for reference and is not converted into invented stats or damage. Gear procs and fighter attack skills are not simulated. For account boost rows, item levels/counts are notes and effects are entered. Configure Hero now also offers regular gear catalog items and levels with automatic stat calculation. Quick tech/decor totals and detailed rows are additive, so enter any given effect in only one place.
 
 A per-hero breakdown shows base/entered stats, account percentages, separate flat boosts, and composed stats. Flat gear, decor and fighter values are outside the growth-percentage group, following recovered client display grouping. Lineup/talent combat stacking remains approximate. Final combat HP/ATK/DEF entry bypasses all account stat additions; crit, resistance and damage modifiers are separate inputs and still apply. Soldier-power conversion remains an adjustable hypothesis.
 
@@ -83,3 +83,14 @@ node tests/combat.mjs
 ```
 
 `master` was created from `main` at `a70b17bbb337ce5872dbbc91cc70ed795d1e464f` for this integration, as requested. The default branch and any GitHub Pages configuration are unchanged. To serve this branch with GitHub Pages, select `master` and the root directory in the repository's Pages settings.
+
+
+## Configure Hero: skills and equipped gear (v0.4)
+
+The hero dialog now includes editable skill levels, four gear slots (Weapon, Helmet, Scope, Bulletproof Vest), upgrade levels and Mythic promotions. A live preview uses the same `combatStats` function as the simulator for battle-start HP/ATK/DEF. Applying the dialog persists the complete configuration and invalidates any prior simulation result. JSON export/import includes it.
+
+Entering a skill level chooses the recovered June `V202606032030` coefficients; the selector can restore the newer reference star-cap values. The two sources differ for several UR heroes, so the formula set stays visible. Thirty heroes have recovered coefficients; Aria UR is absent from that catalog and retains reference caps/custom coefficient support. Specialty skills capped at level 1 and locked skills are not presented as level-30 skills. Primary/secondary coefficients use the recovered formula; target counts, durations and timing still use sandbox assumptions. Passive ATK/DEF bonuses and modeled damage/resistance passives use the selected level, not the star cap. Custom damage overrides retain precedence.
+
+Regular gear stats come from JeffxLabs `data/equipment.json` at revision `52e32f60ad85564b0dcf7c060b054054d2186bf3`, catalog `V202608062022`. Strengthening and promotion main effects use the selected total, while additional effects accumulate through completed milestones. The 16-item catalog has explicit available levels, with no extrapolation. Flat and percentage stats, crit chance/avoidance, physical/radiation/general resistance and countered bonuses flow into the model. Monster-only effects are excluded in PvP. Exclusive weapons, gear procs, server equipment gates and exact combat modifier stacking remain unverified/unmodeled.
+
+For each hero, equipped catalog gear and manual account gear rows are alternative input sources. Catalog gear excludes those manual rows, preventing duplication. Final HP/ATK/DEF overrides bypass stat additions while separate crit/resistance effects remain. Provenance hashes for the gear and skill tables accompany matchup exports. Static module URLs are versioned and the hero dataset is revalidated on load so older cached data cannot break the new editor.
